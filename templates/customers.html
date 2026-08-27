@@ -1,0 +1,204 @@
+{% extends "base.html" %}
+{% block title %}Customers{% endblock %}
+{% block crumb %}Customers{% endblock %}
+{% block content %}
+
+<div class="page-head">
+  <div>
+    <h1 class="page-title">Customers</h1>
+    <p class="page-sub">Government departments, dealers &amp; shop partners</p>
+  </div>
+  <button class="btn btn-primary" onclick="openModal('modal-customer')">+ Add Customer</button>
+</div>
+
+<div class="grid grid-3" style="margin-bottom:18px;">
+  <div class="card stat-card"><div class="stat-label">Total Customers</div><div class="stat-value">{{ total }}</div></div>
+  <div class="card stat-card"><div class="stat-label">Government Clients</div><div class="stat-value">{{ govt }}</div></div>
+  <div class="card stat-card"><div class="stat-label">Dealers / Shops</div><div class="stat-value">{{ dealer }}</div></div>
+</div>
+
+<div class="table-wrap" style="margin-bottom:24px;">
+  <div class="toolbar">
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+      <input class="search-box" id="custSearch" placeholder="Search customers..." onkeyup="filterCustomers()" style="width:220px;">
+      <select id="custTypeFilter" onchange="filterCustomers()" style="padding:9px 12px;border:1px solid var(--border);border-radius:8px;font-size:13.5px;background:#fff;">
+        <option value="All">All Types</option>
+        <option value="Government">Government</option>
+        <option value="Dealer">Dealer</option>
+        <option value="Shop">Shop</option>
+      </select>
+      <select id="custStatusFilter" onchange="filterCustomers()" style="padding:9px 12px;border:1px solid var(--border);border-radius:8px;font-size:13.5px;background:#fff;">
+        <option value="All">All Status</option>
+        <option value="Active">Active</option>
+        <option value="Inactive">Inactive</option>
+      </select>
+    </div>
+    <a href="{{ url_for('export_customers') }}" class="btn btn-outline btn-sm">⬇ Export</a>
+  </div>
+
+  {% if customers %}
+    <table>
+    <thead>
+      <tr>
+        <th class="sortable"><a class="sort-link" href="{{ url_for('customers', sort='name', dir='desc' if current_sort=='name' and current_dir=='asc' else 'asc') }}">Name {% if current_sort=='name' %}{{ '▲' if current_dir=='asc' else '▼' }}{% else %}<span class="sort-ic">⇅</span>{% endif %}</a></th>
+        <th class="sortable"><a class="sort-link" href="{{ url_for('customers', sort='type', dir='desc' if current_sort=='type' and current_dir=='asc' else 'asc') }}">Type {% if current_sort=='type' %}{{ '▲' if current_dir=='asc' else '▼' }}{% else %}<span class="sort-ic">⇅</span>{% endif %}</a></th>
+        <th class="sortable"><a class="sort-link" href="{{ url_for('customers', sort='contact_person', dir='desc' if current_sort=='contact_person' and current_dir=='asc' else 'asc') }}">Contact Person {% if current_sort=='contact_person' %}{{ '▲' if current_dir=='asc' else '▼' }}{% else %}<span class="sort-ic">⇅</span>{% endif %}</a></th>
+        <th class="sortable"><a class="sort-link" href="{{ url_for('customers', sort='phone', dir='desc' if current_sort=='phone' and current_dir=='asc' else 'asc') }}">Phone {% if current_sort=='phone' %}{{ '▲' if current_dir=='asc' else '▼' }}{% else %}<span class="sort-ic">⇅</span>{% endif %}</a></th>
+        <th class="sortable"><a class="sort-link" href="{{ url_for('customers', sort='city', dir='desc' if current_sort=='city' and current_dir=='asc' else 'asc') }}">City {% if current_sort=='city' %}{{ '▲' if current_dir=='asc' else '▼' }}{% else %}<span class="sort-ic">⇅</span>{% endif %}</a></th>
+        <th class="sortable"><a class="sort-link" href="{{ url_for('customers', sort='status', dir='desc' if current_sort=='status' and current_dir=='asc' else 'asc') }}">Status {% if current_sort=='status' %}{{ '▲' if current_dir=='asc' else '▼' }}{% else %}<span class="sort-ic">⇅</span>{% endif %}</a></th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody id="customersTable">
+      {% for c in customers %}
+      <tr data-type="{{ c.type }}" data-status="{{ c.status }}">
+        <td><b>{{ c.name }}</b></td>
+        <td><span class="badge badge-blue">{{ c.type }}</span></td>
+        <td>{{ c.contact_person or '-' }}</td>
+        <td>{{ c.phone or '-' }}</td>
+        <td>{{ c.city or '-' }}</td>
+        <td>
+          {% if c.status == 'Active' %}<span class="badge badge-green">{{ c.status }}</span>
+          {% else %}<span class="badge badge-gray">{{ c.status }}</span>{% endif %}
+        </td>
+                <td style="display:flex;gap:6px;">
+          <button class="btn btn-outline btn-sm" type="button"
+            onclick='editCustomer({{ c.id }}, {{ c.name|tojson }}, {{ c.type|tojson }}, {{ (c.contact_person or "")|tojson }}, {{ (c.phone or "")|tojson }}, {{ (c.email or "")|tojson }}, {{ (c.city or "")|tojson }}, {{ c.status|tojson }}, {{ (c.notes or "")|tojson }})'>Edit</button>
+          <form method="POST" action="{{ url_for('delete_customer', id=c.id) }}" style="display:inline;" onsubmit="return confirm('Delete this customer?');">
+            <button class="btn btn-danger btn-sm" type="submit">Delete</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty"><div class="icon">👤</div><div>No customers yet. Click "+ Add Customer" to add your first record.</div></div>
+  {% endif %}
+</div>
+
+<!-- ================= ANALYTICS SECTION ================= -->
+<div class="grid grid-2" style="align-items:start;">
+  <div class="card">
+    <div class="section-title">Customers by Type</div>
+    {% if type_breakdown %}
+      {% for name, val in type_breakdown %}
+      <div class="hbar-row">
+        <div class="hbar-label">{{ name }}</div>
+        <div class="hbar-track"><div class="hbar-fill" style="width:{{ (val / max_type * 100) }}%;"></div></div>
+        <div class="hbar-val">{{ val }}</div>
+      </div>
+      {% endfor %}
+    {% else %}
+      <p class="page-sub">No data yet — add customers to see the breakdown.</p>
+    {% endif %}
+  </div>
+  <div class="card">
+    <div class="section-title">Customers by City</div>
+    {% if city_breakdown %}
+      {% for name, val in city_breakdown %}
+      <div class="hbar-row">
+        <div class="hbar-label">{{ name }}</div>
+        <div class="hbar-track"><div class="hbar-fill" style="width:{{ (val / max_city * 100) }}%;"></div></div>
+        <div class="hbar-val">{{ val }}</div>
+      </div>
+      {% endfor %}
+    {% else %}
+      <p class="page-sub">No data yet — add customers to see the breakdown.</p>
+    {% endif %}
+  </div>
+</div>
+
+<!-- ================= ADD MODAL ================= -->
+<div class="overlay" id="modal-customer">
+  <div class="modal">
+    <h3>Add Customer</h3>
+    <div class="modal-sub">Government department, dealer, or shop partner</div>
+    <form method="POST" action="{{ url_for('add_customer') }}">
+      <div class="field"><label>Customer / Organization Name</label><input name="name" required placeholder="e.g. Punjab Mass Transit Authority"></div>
+      <div class="two-col">
+        <div class="field"><label>Type</label>
+          <select name="type"><option>Government</option><option>Dealer</option><option>Shop</option></select>
+        </div>
+        <div class="field"><label>City</label><input name="city" placeholder="e.g. Lahore"></div>
+      </div>
+      <div class="two-col">
+        <div class="field"><label>Contact Person</label><input name="contact_person" placeholder="Full name"></div>
+        <div class="field"><label>Phone</label><input name="phone" placeholder="03xx-xxxxxxx"></div>
+      </div>
+      <div class="field"><label>Email</label><input name="email" type="email" placeholder="name@example.com"></div>
+      <div class="field"><label>Status</label>
+        <select name="status"><option>Active</option><option>Inactive</option></select>
+      </div>
+      <div class="field"><label>Notes</label><textarea name="notes" placeholder="Any relevant details..."></textarea></div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-outline" onclick="closeModal('modal-customer')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save Customer</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ================= EDIT MODAL ================= -->
+<div class="overlay" id="modal-edit-customer">
+  <div class="modal">
+    <h3>Edit Customer</h3>
+    <div class="modal-sub">Update this customer's details</div>
+    <form method="POST" id="edit-form" action="">
+      <div class="field"><label>Customer / Organization Name</label><input name="name" id="e-name" required></div>
+      <div class="two-col">
+        <div class="field"><label>Type</label>
+          <select name="type" id="e-type"><option>Government</option><option>Dealer</option><option>Shop</option></select>
+        </div>
+        <div class="field"><label>City</label><input name="city" id="e-city"></div>
+      </div>
+      <div class="two-col">
+        <div class="field"><label>Contact Person</label><input name="contact_person" id="e-contact"></div>
+        <div class="field"><label>Phone</label><input name="phone" id="e-phone"></div>
+      </div>
+      <div class="field"><label>Email</label><input name="email" id="e-email" type="email"></div>
+      <div class="field"><label>Status</label>
+        <select name="status" id="e-status"><option>Active</option><option>Inactive</option></select>
+      </div>
+      <div class="field"><label>Notes</label><textarea name="notes" id="e-notes"></textarea></div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-outline" onclick="closeModal('modal-edit-customer')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save Changes</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function filterCustomers(){
+  const search = document.getElementById('custSearch').value.toLowerCase();
+  const typeVal = document.getElementById('custTypeFilter').value;
+  const statusVal = document.getElementById('custStatusFilter').value;
+  document.querySelectorAll('#customersTable tr').forEach(function(row){
+    const rowType = row.getAttribute('data-type');
+    const rowStatus = row.getAttribute('data-status');
+    let visible = true;
+    if (search && !row.innerText.toLowerCase().includes(search)) visible = false;
+    if (typeVal !== 'All' && rowType !== typeVal) visible = false;
+    if (statusVal !== 'All' && rowStatus !== statusVal) visible = false;
+    row.style.display = visible ? '' : 'none';
+  });
+}
+
+function editCustomer(id, name, type, contact, phone, email, city, status, notes){
+  document.getElementById('edit-form').action = '/customers/edit/' + id;
+  document.getElementById('e-name').value = name;
+  document.getElementById('e-type').value = type;
+  document.getElementById('e-contact').value = contact;
+  document.getElementById('e-phone').value = phone;
+  document.getElementById('e-email').value = email;
+  document.getElementById('e-city').value = city;
+  document.getElementById('e-status').value = status;
+  document.getElementById('e-notes').value = notes;
+  openModal('modal-edit-customer');
+}
+</script>
+{% endblock %}

@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}City Summary{% endblock %}
+{% block crumb %}Fleet Operations &gt; City Summary{% endblock %}
+{% block content %}
+
+<div class="page-head">
+  <div>
+    <h1 class="page-title">City Summary</h1>
+    <p class="page-sub">Fleet performance across all operating cities — reporting period 01–13 July 2026</p>
+  </div>
+  <a href="{{ url_for('export_city') }}" class="btn btn-outline">⬇ Export</a>
+</div>
+
+<div class="grid grid-4" style="margin-bottom:18px;">
+  <div class="card stat-card"><div class="stat-label">Total Buses</div><div class="stat-value">{{ totals.buses }}</div></div>
+  <div class="card stat-card"><div class="stat-label">Total Routes</div><div class="stat-value">{{ totals.routes }}</div></div>
+  <div class="card stat-card"><div class="stat-label">Planned Trips</div><div class="stat-value">{{ "{:,}".format(totals.planned) }}</div></div>
+  <div class="card stat-card"><div class="stat-label">Overall Delay %</div><div class="stat-value">{{ overall_delay }}%</div></div>
+</div>
+
+<div class="table-wrap" style="margin-bottom:20px;">
+  <div class="toolbar">
+    <input class="search-box" placeholder="Search city..." onkeyup="filterTable(this,'cityTable')">
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th class="sortable"><a class="sort-link" href="{{ url_for('fleet_city', sort='city', dir='desc' if current_sort=='city' and current_dir=='asc' else 'asc') }}">City {% if current_sort=='city' %}{{ '▲' if current_dir=='asc' else '▼' }}{% else %}<span class="sort-ic">⇅</span>{% endif %}</a></th>
+        <th class="sortable"><a class="sort-link" href="{{ url_for('fleet_city', sort='buses', dir='desc' if current_sort=='buses' and current_dir=='asc' else 'asc') }}">Buses {% if current_sort=='buses' %}{{ '▲' if current_dir=='asc' else '▼' }}{% else %}<span class="sort-ic">⇅</span>{% endif %}</a></th>
+        <th class="sortable"><a class="sort-link" href="{{ url_for('fleet_city', sort='routes', dir='desc' if current_sort=='routes' and current_dir=='asc' else 'asc') }}">Routes {% if current_sort=='routes' %}{{ '▲' if current_dir=='asc' else '▼' }}{% else %}<span class="sort-ic">⇅</span>{% endif %}</a></th>
+        <th class="sortable"><a class="sort-link" href="{{ url_for('fleet_city', sort='planned', dir='desc' if current_sort=='planned' and current_dir=='asc' else 'asc') }}">Planned Trips {% if current_sort=='planned' %}{{ '▲' if current_dir=='asc' else '▼' }}{% else %}<span class="sort-ic">⇅</span>{% endif %}</a></th>
+        <th class="sortable"><a class="sort-link" href="{{ url_for('fleet_city', sort='matured', dir='desc' if current_sort=='matured' and current_dir=='asc' else 'asc') }}">Matured Trips {% if current_sort=='matured' %}{{ '▲' if current_dir=='asc' else '▼' }}{% else %}<span class="sort-ic">⇅</span>{% endif %}</a></th>
+        <th class="sortable"><a class="sort-link" href="{{ url_for('fleet_city', sort='delayed', dir='desc' if current_sort=='delayed' and current_dir=='asc' else 'asc') }}">Delayed Trips {% if current_sort=='delayed' %}{{ '▲' if current_dir=='asc' else '▼' }}{% else %}<span class="sort-ic">⇅</span>{% endif %}</a></th>
+        <th class="sortable"><a class="sort-link" href="{{ url_for('fleet_city', sort='delay_pct', dir='desc' if current_sort=='delay_pct' and current_dir=='asc' else 'asc') }}">Delay % {% if current_sort=='delay_pct' %}{{ '▲' if current_dir=='asc' else '▼' }}{% else %}<span class="sort-ic">⇅</span>{% endif %}</a></th>
+      </tr>
+    </thead>
+    <tbody id="cityTable">
+      {% for c in cities %}
+      <tr>
+        <td><b>{{ c.city }}</b></td>
+        <td>{{ c.buses }}</td>
+        <td>{{ c.routes }}</td>
+        <td>{{ "{:,}".format(c.planned_trips) }}</td>
+        <td>{{ "{:,}".format(c.matured_trips) }}</td>
+        <td>{{ "{:,}".format(c.delayed_trips) }}</td>
+        <td>
+          {% if c.delay_pct > 15 %}<span class="badge badge-red">{{ c.delay_pct }}%</span>
+          {% elif c.delay_pct > 5 %}<span class="badge badge-amber">{{ c.delay_pct }}%</span>
+          {% else %}<span class="badge badge-green">{{ c.delay_pct }}%</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="card fade-in">
+  <div class="section-title">Top 10 Cities by Delay %</div>
+  <div class="bar-chart">
+    {% for c in top_delay_cities %}
+    <div class="bar-col">
+      <div class="val">{{ c.delay_pct }}%</div>
+      <div class="bar" style="height:{{ (c.delay_pct / 25 * 100) if c.delay_pct < 25 else 100 }}%;"></div>
+      <div class="lbl">{{ c.city }}</div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+{% endblock %}

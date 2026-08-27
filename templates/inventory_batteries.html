@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+{% block title %}Batteries Stock{% endblock %}
+{% block crumb %}Batteries Stock{% endblock %}
+{% block content %}
+
+<div class="page-head">
+  <div>
+    <h1 class="page-title">Batteries Stock</h1>
+    <p class="page-sub">Battery pack inventory — supply &amp; fitting tracking</p>
+  </div>
+  <button class="btn btn-primary" onclick="openModal('modal-battery')">+ Add Battery Batch</button>
+</div>
+
+<div class="grid grid-3" style="margin-bottom:18px;">
+  <div class="card stat-card"><div class="stat-label">Total Units</div><div class="stat-value">{{ total_units }}</div></div>
+  <div class="card stat-card"><div class="stat-label">Available</div><div class="stat-value">{{ available }}</div></div>
+  <div class="card stat-card"><div class="stat-label">Fitted to Buses</div><div class="stat-value">{{ fitted }}</div></div>
+</div>
+
+<div class="table-wrap" style="margin-bottom:24px;">
+  <div class="toolbar">
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+      <input class="search-box" id="battSearch" placeholder="Search batteries..." onkeyup="filterBatteries()" style="width:220px;">
+      <select id="battStatusFilter" onchange="filterBatteries()" style="padding:9px 12px;border:1px solid var(--border);border-radius:8px;font-size:13.5px;background:#fff;">
+        <option value="All">All Status</option>
+        <option value="Available">Available</option>
+        <option value="Fitted to Buses">Fitted to Buses</option>
+        <option value="Reserved">Reserved</option>
+      </select>
+    </div>
+    <a href="{{ url_for('export_batteries') }}" class="btn btn-outline btn-sm">⬇ Export</a>
+  </div>
+
+  {% if batteries %}
+  <table>
+    <thead>
+      <tr>
+        <th class="sortable"><a class="sort-link" href="{{ url_for('inventory_batteries', sort='batch', dir='desc' if current_sort=='batch' and current_dir=='asc' else 'asc') }}">Batch / Serial {% if current_sort=='batch' %}{{ '▲' if current_dir=='asc' else '▼' }}{% else %}<span class="sort-ic">⇅</span>{% endif %}</a></th>
+        <th class="sortable"><a class="sort-link" href="{{ url_for('inventory_batteries', sort='capacity_kwh', dir='desc' if current_sort=='capacity_kwh' and current_dir=='asc' else 'asc') }}">Capacity (kWh) {% if current_sort=='capacity_kwh' %}{{ '▲' if current_dir=='asc' else '▼' }}{% else %}<span class="sort-ic">⇅</span>{% endif %}</a></th>
+        <th class="sortable"><a class="sort-link" href="{{ url_for('inventory_batteries', sort='supplier', dir='desc' if current_sort=='supplier' and current_dir=='asc' else 'asc') }}">Supplier {% if current_sort=='supplier' %}{{ '▲' if current_dir=='asc' else '▼' }}{% else %}<span class="sort-ic">⇅</span>{% endif %}</a></th>
+        <th class="sortable"><a class="sort-link" href="{{ url_for('inventory_batteries', sort='qty', dir='desc' if current_sort=='qty' and current_dir=='asc' else 'asc') }}">Qty {% if current_sort=='qty' %}{{ '▲' if current_dir=='asc' else '▼' }}{% else %}<span class="sort-ic">⇅</span>{% endif %}</a></th>
+        <th class="sortable"><a class="sort-link" href="{{ url_for('inventory_batteries', sort='status', dir='desc' if current_sort=='status' and current_dir=='asc' else 'asc') }}">Status {% if current_sort=='status' %}{{ '▲' if current_dir=='asc' else '▼' }}{% else %}<span class="sort-ic">⇅</span>{% endif %}</a></th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody id="batteriesTable">
+      {% for b in batteries %}
+      <tr data-status="{{ b.status }}">
+        <td><b>{{ b.batch }}</b></td>
+        <td>{{ b.capacity_kwh }}</td>
+        <td>{{ b.supplier or '-' }}</td>
+        <td>{{ b.qty }}</td>
+        <td>
+          {% if b.status == 'Available' %}<span class="badge badge-green">{{ b.status }}</span>
+          {% elif b.status == 'Fitted to Buses' %}<span class="badge badge-blue">{{ b.status }}</span>
+          {% else %}<span class="badge badge-amber">{{ b.status }}</span>
+          {% endif %}
+        </td>
+        <td style="display:flex;gap:6px;">
+          <button class="btn btn-outline btn-sm" type="button"
+            onclick='editBattery({{ b.id }}, {{ b.batch|tojson }}, {{ b.capacity_kwh|tojson }}, {{ (b.supplier or "")|tojson }}, {{ b.qty|tojson }}, {{ b.status|tojson }})'>Edit</button>
+          <form method="POST" action="{{ url_for('delete_battery', id=b.id) }}" style="display:inline;" onsubmit="return confirm('Delete this battery batch?');">
+            <button class="btn btn-danger btn-sm" type="submit">Delete</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty"><div class="icon">🔋</div><div>No battery batches recorded yet.</div></div>
+  {% endif %}
+</div>
+
+<div class="card fade-in">
+  <div class="section-title">Battery Units by Status</div>
+  {% if status_breakdown %}
+    {% for name, val in status_breakdown %}
+    <div class="hbar-row">
+      <div class="hbar-label">{{ name }}</div>
+      <div class="hbar-track"><div class="hbar-fill animated-bar" style="--target-width:{{ (val / max_status * 100) }}%;"></div></div>
+      <div class="hbar-val">{{ val }}</div>
+    </div>
+    {% endfor %}
+  {% else %}
+    <p class="page-sub">No data yet — add battery batches to see the status breakdown.</p>
+  {% endif %}
+</div>
+
+<!-- ADD MODAL -->
+<div class="overlay" id="modal-battery">
+  <div class="modal">
+    <h3>Add Battery Batch</h3>
+    <form method="POST" action="{{ url_for('add_battery') }}">
+      <div class="field"><label>Batch / Serial</label><input name="batch" required placeholder="e.g. BATT-2026-055"></div>
+      <div class="two-col">
+        <div class="field"><label>Capacity (kWh)</label><input type="number" name="capacity_kwh" placeholder="e.g. 250"></div>
+        <div class="field"><label>Supplier</label><input name="supplier" placeholder="Supplier name"></div>
+      </div>
+      <div class="two-col">
+        <div class="field"><label>Quantity</label><input type="number" name="qty" placeholder="0"></div>
+        <div class="field"><label>Status</label>
+          <select name="status"><option>Available</option><option>Fitted to Buses</option><option>Reserved</option></select>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-outline" onclick="closeModal('modal-battery')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save Battery Batch</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- EDIT MODAL -->
+<div class="overlay" id="modal-edit-battery">
+  <div class="modal">
+    <h3>Edit Battery Batch</h3>
+    <form method="POST" id="edit-batt-form" action="">
+      <div class="field"><label>Batch / Serial</label><input name="batch" id="ebt-batch" required></div>
+      <div class="two-col">
+        <div class="field"><label>Capacity (kWh)</label><input type="number" name="capacity_kwh" id="ebt-capacity"></div>
+        <div class="field"><label>Supplier</label><input name="supplier" id="ebt-supplier"></div>
+      </div>
+      <div class="two-col">
+        <div class="field"><label>Quantity</label><input type="number" name="qty" id="ebt-qty"></div>
+        <div class="field"><label>Status</label>
+          <select name="status" id="ebt-status"><option>Available</option><option>Fitted to Buses</option><option>Reserved</option></select>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-outline" onclick="closeModal('modal-edit-battery')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save Changes</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function filterBatteries(){
+  const search = document.getElementById('battSearch').value.toLowerCase();
+  const statusVal = document.getElementById('battStatusFilter').value;
+  document.querySelectorAll('#batteriesTable tr').forEach(function(row){
+    const rowStatus = row.getAttribute('data-status');
+    let visible = true;
+    if (search && !row.innerText.toLowerCase().includes(search)) visible = false;
+    if (statusVal !== 'All' && rowStatus !== statusVal) visible = false;
+    row.style.display = visible ? '' : 'none';
+  });
+}
+
+function editBattery(id, batch, capacity, supplier, qty, status){
+  document.getElementById('edit-batt-form').action = '/inventory/batteries/edit/' + id;
+  document.getElementById('ebt-batch').value = batch;
+  document.getElementById('ebt-capacity').value = capacity;
+  document.getElementById('ebt-supplier').value = supplier;
+  document.getElementById('ebt-qty').value = qty;
+  document.getElementById('ebt-status').value = status;
+  openModal('modal-edit-battery');
+}
+</script>
+{% endblock %}

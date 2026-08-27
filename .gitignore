@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.pyc
+venv/
+env/
+
+# Database (contains business data - don't upload)
+database/*.db
+
+# Instance folder (Flask auto-generated)
+instance/
+
+# Employee uploaded photos (privacy)
+static/uploads/employees/*
+!static/uploads/employees/.gitkeep

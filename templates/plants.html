@@ -1,0 +1,176 @@
+{% extends "base.html" %}
+{% block title %}Plants{% endblock %}
+{% block crumb %}Manufacturing Plants{% endblock %}
+{% block content %}
+
+<div class="page-head">
+  <div>
+    <h1 class="page-title">Manufacturing Plants / Shops</h1>
+    <p class="page-sub">Physical sites where NEVF buses are assembled &amp; built</p>
+  </div>
+  <button class="btn btn-primary" onclick="openModal('modal-plant')">+ Add Plant</button>
+</div>
+
+<div class="grid grid-3" style="margin-bottom:18px;">
+  <div class="card stat-card"><div class="stat-label">Total Plants</div><div class="stat-value">{{ plants|length }}</div></div>
+  <div class="card stat-card"><div class="stat-label">Operational</div><div class="stat-value">{{ plants|selectattr('status','equalto','Operational')|list|length }}</div></div>
+  <div class="card stat-card"><div class="stat-label">Total Monthly Capacity</div><div class="stat-value">{{ total_capacity }}</div></div>
+</div>
+
+<div class="table-wrap" style="margin-bottom:24px;">
+  <div class="toolbar">
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+      <input class="search-box" id="plantSearch" placeholder="Search plants..." onkeyup="filterPlants()" style="width:220px;">
+      <select id="plantStatusFilter" onchange="filterPlants()" style="padding:9px 12px;border:1px solid var(--border);border-radius:8px;font-size:13.5px;background:#fff;">
+        <option value="All">All Status</option>
+        <option value="Operational">Operational</option>
+        <option value="Under Construction">Under Construction</option>
+        <option value="Planned">Planned</option>
+      </select>
+    </div>
+    <a href="{{ url_for('export_plants') }}" class="btn btn-outline btn-sm">⬇ Export</a>
+  </div>
+
+  {% if plants %}
+  <table>
+    <thead>
+      <tr>
+        <th class="sortable"><a class="sort-link" href="{{ url_for('plants', sort='name', dir='desc' if current_sort=='name' and current_dir=='asc' else 'asc') }}">Plant Name {% if current_sort=='name' %}{{ '▲' if current_dir=='asc' else '▼' }}{% else %}<span class="sort-ic">⇅</span>{% endif %}</a></th>
+        <th class="sortable"><a class="sort-link" href="{{ url_for('plants', sort='city', dir='desc' if current_sort=='city' and current_dir=='asc' else 'asc') }}">City {% if current_sort=='city' %}{{ '▲' if current_dir=='asc' else '▼' }}{% else %}<span class="sort-ic">⇅</span>{% endif %}</a></th>
+        <th class="sortable"><a class="sort-link" href="{{ url_for('plants', sort='lines', dir='desc' if current_sort=='lines' and current_dir=='asc' else 'asc') }}">Lines {% if current_sort=='lines' %}{{ '▲' if current_dir=='asc' else '▼' }}{% else %}<span class="sort-ic">⇅</span>{% endif %}</a></th>
+        <th class="sortable"><a class="sort-link" href="{{ url_for('plants', sort='capacity_per_month', dir='desc' if current_sort=='capacity_per_month' and current_dir=='asc' else 'asc') }}">Capacity/Month {% if current_sort=='capacity_per_month' %}{{ '▲' if current_dir=='asc' else '▼' }}{% else %}<span class="sort-ic">⇅</span>{% endif %}</a></th>
+        <th class="sortable"><a class="sort-link" href="{{ url_for('plants', sort='status', dir='desc' if current_sort=='status' and current_dir=='asc' else 'asc') }}">Status {% if current_sort=='status' %}{{ '▲' if current_dir=='asc' else '▼' }}{% else %}<span class="sort-ic">⇅</span>{% endif %}</a></th>
+        <th>Established</th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody id="plantsTable">
+      {% for p in plants %}
+      <tr data-status="{{ p.status }}">
+        <td><b>{{ p.name }}</b><br><span style="color:var(--text-muted);font-size:12px;">{{ p.address or '' }}</span></td>
+        <td>{{ p.city }}</td>
+        <td>{{ p.lines }}</td>
+        <td>{{ p.capacity_per_month }} buses</td>
+        <td>
+          {% if p.status == 'Operational' %}<span class="badge badge-green">{{ p.status }}</span>
+          {% elif p.status == 'Under Construction' %}<span class="badge badge-amber">{{ p.status }}</span>
+          {% else %}<span class="badge badge-gray">{{ p.status }}</span>
+          {% endif %}
+        </td>
+        <td>{{ p.established_date or '-' }}</td>
+        <td style="display:flex;gap:6px;">
+          <button class="btn btn-outline btn-sm" type="button"
+            onclick='editPlant({{ p.id }}, {{ p.name|tojson }}, {{ p.city|tojson }}, {{ (p.address or "")|tojson }}, {{ p.lines|tojson }}, {{ p.capacity_per_month|tojson }}, {{ p.status|tojson }}, {{ (p.established_date or "")|tojson }}, {{ (p.notes or "")|tojson }})'>Edit</button>
+          <form method="POST" action="{{ url_for('delete_plant', id=p.id) }}" style="display:inline;" onsubmit="return confirm('Delete this plant?');">
+            <button class="btn btn-danger btn-sm" type="submit">Delete</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty"><div class="icon">🏗️</div><div>No plants recorded yet. Click "+ Add Plant" to add your first manufacturing site.</div></div>
+  {% endif %}
+</div>
+
+<div class="card fade-in">
+  <div class="section-title">Plants by Status</div>
+  {% if status_breakdown %}
+    {% for name, val in status_breakdown %}
+    <div class="hbar-row">
+      <div class="hbar-label">{{ name }}</div>
+      <div class="hbar-track"><div class="hbar-fill animated-bar" style="--target-width:{{ (val / max_status * 100) }}%;"></div></div>
+      <div class="hbar-val">{{ val }}</div>
+    </div>
+    {% endfor %}
+  {% else %}
+    <p class="page-sub">No data yet — add plants to see the status breakdown.</p>
+  {% endif %}
+</div>
+
+<!-- ADD MODAL -->
+<div class="overlay" id="modal-plant">
+  <div class="modal">
+    <h3>Add Manufacturing Plant</h3>
+    <div class="modal-sub">A physical site/shop where buses are built</div>
+    <form method="POST" action="{{ url_for('add_plant') }}">
+      <div class="field"><label>Plant Name</label><input name="name" required placeholder="e.g. NEVF Assembly Plant - Taxila"></div>
+      <div class="two-col">
+        <div class="field"><label>City</label><input name="city" required placeholder="e.g. Taxila"></div>
+        <div class="field"><label>Status</label>
+          <select name="status"><option>Operational</option><option>Under Construction</option><option>Planned</option></select>
+        </div>
+      </div>
+      <div class="field"><label>Address</label><input name="address" placeholder="Full address"></div>
+      <div class="two-col">
+        <div class="field"><label>Assembly Lines</label><input type="number" name="lines" value="1"></div>
+        <div class="field"><label>Capacity (Buses/Month)</label><input type="number" name="capacity_per_month" placeholder="0"></div>
+      </div>
+      <div class="field"><label>Established Date</label><input type="date" name="established_date"></div>
+      <div class="field"><label>Notes</label><textarea name="notes"></textarea></div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-outline" onclick="closeModal('modal-plant')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save Plant</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- EDIT MODAL -->
+<div class="overlay" id="modal-edit-plant">
+  <div class="modal">
+    <h3>Edit Manufacturing Plant</h3>
+    <form method="POST" id="edit-plant-form" action="">
+      <div class="field"><label>Plant Name</label><input name="name" id="epl-name" required></div>
+      <div class="two-col">
+        <div class="field"><label>City</label><input name="city" id="epl-city" required></div>
+        <div class="field"><label>Status</label>
+          <select name="status" id="epl-status"><option>Operational</option><option>Under Construction</option><option>Planned</option></select>
+        </div>
+      </div>
+      <div class="field"><label>Address</label><input name="address" id="epl-address"></div>
+      <div class="two-col">
+        <div class="field"><label>Assembly Lines</label><input type="number" name="lines" id="epl-lines"></div>
+        <div class="field"><label>Capacity (Buses/Month)</label><input type="number" name="capacity_per_month" id="epl-capacity"></div>
+      </div>
+      <div class="field"><label>Established Date</label><input type="date" name="established_date" id="epl-established"></div>
+      <div class="field"><label>Notes</label><textarea name="notes" id="epl-notes"></textarea></div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-outline" onclick="closeModal('modal-edit-plant')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save Changes</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function filterPlants(){
+  const search = document.getElementById('plantSearch').value.toLowerCase();
+  const statusVal = document.getElementById('plantStatusFilter').value;
+  document.querySelectorAll('#plantsTable tr').forEach(function(row){
+    const rowStatus = row.getAttribute('data-status');
+    let visible = true;
+    if (search && !row.innerText.toLowerCase().includes(search)) visible = false;
+    if (statusVal !== 'All' && rowStatus !== statusVal) visible = false;
+    row.style.display = visible ? '' : 'none';
+  });
+}
+
+function editPlant(id, name, city, address, lines, capacity, status, established, notes){
+  document.getElementById('edit-plant-form').action = '/plants/edit/' + id;
+  document.getElementById('epl-name').value = name;
+  document.getElementById('epl-city').value = city;
+  document.getElementById('epl-address').value = address;
+  document.getElementById('epl-lines').value = lines;
+  document.getElementById('epl-capacity').value = capacity;
+  document.getElementById('epl-status').value = status;
+  document.getElementById('epl-established').value = established;
+  document.getElementById('epl-notes').value = notes;
+  openModal('modal-edit-plant');
+}
+</script>
+{% endblock %}

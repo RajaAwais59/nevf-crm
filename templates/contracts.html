@@ -1,0 +1,183 @@
+{% extends "base.html" %}
+{% block title %}Contracts{% endblock %}
+{% block crumb %}Contracts &amp; Orders{% endblock %}
+{% block content %}
+
+<div class="page-head">
+  <div>
+    <h1 class="page-title">Contracts &amp; Orders</h1>
+    <p class="page-sub">Confirmed purchase orders — bus units &amp; batteries</p>
+  </div>
+  <button class="btn btn-primary" onclick="openModal('modal-contract')">+ Add Contract</button>
+</div>
+
+<div class="grid grid-3" style="margin-bottom:18px;">
+  <div class="card stat-card"><div class="stat-label">Total Contracts</div><div class="stat-value">{{ contracts|length }}</div></div>
+  <div class="card stat-card"><div class="stat-label">Total Contract Value</div><div class="stat-value">PKR {{ "{:,.0f}".format(total_value) }}</div></div>
+  <div class="card stat-card"><div class="stat-label">Delivered Value</div><div class="stat-value">PKR {{ "{:,.0f}".format(delivered_value) }}</div></div>
+</div>
+
+<div class="table-wrap" style="margin-bottom:24px;">
+  <div class="toolbar">
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+      <input class="search-box" id="contractSearch" placeholder="Search contracts..." onkeyup="filterContracts()" style="width:220px;">
+      <select id="contractStatusFilter" onchange="filterContracts()" style="padding:9px 12px;border:1px solid var(--border);border-radius:8px;font-size:13.5px;background:#fff;">
+        <option value="All">All Status</option>
+        <option value="Draft">Draft</option>
+        <option value="Confirmed">Confirmed</option>
+        <option value="In Production">In Production</option>
+        <option value="Delivered">Delivered</option>
+      </select>
+      <select id="contractItemFilter" onchange="filterContracts()" style="padding:9px 12px;border:1px solid var(--border);border-radius:8px;font-size:13.5px;background:#fff;">
+        <option value="All">All Items</option>
+        <option value="Electric Bus">Electric Bus</option>
+        <option value="Battery Pack">Battery Pack</option>
+        <option value="Spare Parts">Spare Parts</option>
+      </select>
+    </div>
+    <a href="{{ url_for('export_contracts') }}" class="btn btn-outline btn-sm">⬇ Export</a>
+  </div>
+
+  {% if contracts %}
+  <table>
+    <thead>
+      <tr>
+        <th class="sortable"><a class="sort-link" href="{{ url_for('contracts', sort='ref', dir='desc' if current_sort=='ref' and current_dir=='asc' else 'asc') }}">Contract Ref {% if current_sort=='ref' %}{{ '▲' if current_dir=='asc' else '▼' }}{% else %}<span class="sort-ic">⇅</span>{% endif %}</a></th>
+        <th class="sortable"><a class="sort-link" href="{{ url_for('contracts', sort='customer_name', dir='desc' if current_sort=='customer_name' and current_dir=='asc' else 'asc') }}">Customer {% if current_sort=='customer_name' %}{{ '▲' if current_dir=='asc' else '▼' }}{% else %}<span class="sort-ic">⇅</span>{% endif %}</a></th>
+        <th class="sortable"><a class="sort-link" href="{{ url_for('contracts', sort='item', dir='desc' if current_sort=='item' and current_dir=='asc' else 'asc') }}">Item {% if current_sort=='item' %}{{ '▲' if current_dir=='asc' else '▼' }}{% else %}<span class="sort-ic">⇅</span>{% endif %}</a></th>
+        <th class="sortable"><a class="sort-link" href="{{ url_for('contracts', sort='qty', dir='desc' if current_sort=='qty' and current_dir=='asc' else 'asc') }}">Qty {% if current_sort=='qty' %}{{ '▲' if current_dir=='asc' else '▼' }}{% else %}<span class="sort-ic">⇅</span>{% endif %}</a></th>
+        <th class="sortable"><a class="sort-link" href="{{ url_for('contracts', sort='value', dir='desc' if current_sort=='value' and current_dir=='asc' else 'asc') }}">Value (PKR) {% if current_sort=='value' %}{{ '▲' if current_dir=='asc' else '▼' }}{% else %}<span class="sort-ic">⇅</span>{% endif %}</a></th>
+        <th class="sortable"><a class="sort-link" href="{{ url_for('contracts', sort='status', dir='desc' if current_sort=='status' and current_dir=='asc' else 'asc') }}">Status {% if current_sort=='status' %}{{ '▲' if current_dir=='asc' else '▼' }}{% else %}<span class="sort-ic">⇅</span>{% endif %}</a></th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody id="contractsTable">
+      {% for c in contracts %}
+      <tr data-status="{{ c.status }}" data-item="{{ c.item }}">
+        <td><b>{{ c.ref }}</b></td>
+        <td>{{ c.customer_name or '-' }}</td>
+        <td>{{ c.item }}</td>
+        <td>{{ c.qty }}</td>
+        <td>{{ "{:,.0f}".format(c.value) }}</td>
+        <td>
+          {% if c.status == 'Delivered' %}<span class="badge badge-green">{{ c.status }}</span>
+          {% elif c.status == 'Draft' %}<span class="badge badge-gray">{{ c.status }}</span>
+          {% else %}<span class="badge badge-blue">{{ c.status }}</span>
+          {% endif %}
+        </td>
+        <td style="display:flex;gap:6px;">
+          <button class="btn btn-outline btn-sm" type="button"
+            onclick='editContract({{ c.id }}, {{ c.ref|tojson }}, {{ (c.customer_name or "")|tojson }}, {{ c.item|tojson }}, {{ c.qty|tojson }}, {{ c.value|tojson }}, {{ c.status|tojson }})'>Edit</button>
+          <form method="POST" action="{{ url_for('delete_contract', id=c.id) }}" style="display:inline;" onsubmit="return confirm('Delete this contract?');">
+            <button class="btn btn-danger btn-sm" type="submit">Delete</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty"><div class="icon">📄</div><div>No contracts yet. Click "+ Add Contract" to record a new order.</div></div>
+  {% endif %}
+</div>
+
+<div class="card fade-in">
+  <div class="section-title">Contracts by Status</div>
+  {% if status_breakdown %}
+    {% for name, val in status_breakdown %}
+    <div class="hbar-row">
+      <div class="hbar-label">{{ name }}</div>
+      <div class="hbar-track"><div class="hbar-fill animated-bar" style="--target-width:{{ (val / max_status * 100) }}%;"></div></div>
+      <div class="hbar-val">{{ val }}</div>
+    </div>
+    {% endfor %}
+  {% else %}
+    <p class="page-sub">No data yet — add contracts to see the status breakdown.</p>
+  {% endif %}
+</div>
+
+<!-- ADD MODAL -->
+<div class="overlay" id="modal-contract">
+  <div class="modal">
+    <h3>Add Contract / Order</h3>
+    <form method="POST" action="{{ url_for('add_contract') }}">
+      <div class="field"><label>Contract Reference</label><input name="ref" required placeholder="e.g. NEVF-PMTA-2026-014"></div>
+      <div class="field"><label>Customer</label><input name="customer_name" placeholder="Customer / organization name"></div>
+      <div class="two-col">
+        <div class="field"><label>Item</label>
+          <select name="item"><option>Electric Bus</option><option>Battery Pack</option><option>Spare Parts</option></select>
+        </div>
+        <div class="field"><label>Quantity</label><input type="number" name="qty" placeholder="0"></div>
+      </div>
+      <div class="two-col">
+        <div class="field"><label>Total Value (PKR)</label><input type="number" name="value" placeholder="0"></div>
+        <div class="field"><label>Status</label>
+          <select name="status"><option>Draft</option><option>Confirmed</option><option>In Production</option><option>Delivered</option></select>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-outline" onclick="closeModal('modal-contract')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save Contract</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- EDIT MODAL -->
+<div class="overlay" id="modal-edit-contract">
+  <div class="modal">
+    <h3>Edit Contract / Order</h3>
+    <form method="POST" id="edit-contract-form" action="">
+      <div class="field"><label>Contract Reference</label><input name="ref" id="ec-ref" required></div>
+      <div class="field"><label>Customer</label><input name="customer_name" id="ec-customer"></div>
+      <div class="two-col">
+        <div class="field"><label>Item</label>
+          <select name="item" id="ec-item"><option>Electric Bus</option><option>Battery Pack</option><option>Spare Parts</option></select>
+        </div>
+        <div class="field"><label>Quantity</label><input type="number" name="qty" id="ec-qty"></div>
+      </div>
+      <div class="two-col">
+        <div class="field"><label>Total Value (PKR)</label><input type="number" name="value" id="ec-value"></div>
+        <div class="field"><label>Status</label>
+          <select name="status" id="ec-status"><option>Draft</option><option>Confirmed</option><option>In Production</option><option>Delivered</option></select>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-outline" onclick="closeModal('modal-edit-contract')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save Changes</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function filterContracts(){
+  const search = document.getElementById('contractSearch').value.toLowerCase();
+  const statusVal = document.getElementById('contractStatusFilter').value;
+  const itemVal = document.getElementById('contractItemFilter').value;
+  document.querySelectorAll('#contractsTable tr').forEach(function(row){
+    const rowStatus = row.getAttribute('data-status');
+    const rowItem = row.getAttribute('data-item');
+    let visible = true;
+    if (search && !row.innerText.toLowerCase().includes(search)) visible = false;
+    if (statusVal !== 'All' && rowStatus !== statusVal) visible = false;
+    if (itemVal !== 'All' && rowItem !== itemVal) visible = false;
+    row.style.display = visible ? '' : 'none';
+  });
+}
+
+function editContract(id, ref, customer, item, qty, value, status){
+  document.getElementById('edit-contract-form').action = '/contracts/edit/' + id;
+  document.getElementById('ec-ref').value = ref;
+  document.getElementById('ec-customer').value = customer;
+  document.getElementById('ec-item').value = item;
+  document.getElementById('ec-qty').value = qty;
+  document.getElementById('ec-value').value = value;
+  document.getElementById('ec-status').value = status;
+  openModal('modal-edit-contract');
+}
+</script>
+{% endblock %}

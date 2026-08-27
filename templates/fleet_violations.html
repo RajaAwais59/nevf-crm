@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Driver Violations{% endblock %}
+{% block crumb %}Fleet Operations &gt; Driver Violations{% endblock %}
+{% block content %}
+
+<div class="page-head">
+  <div>
+    <h1 class="page-title">Driver Violations</h1>
+    <p class="page-sub">Violation monitoring &amp; penalty tracking — 01–12 July 2026</p>
+  </div>
+  <a href="{{ url_for('export_violations') }}" class="btn btn-outline">⬇ Export</a>
+</div>
+
+<div class="grid grid-2" style="margin-bottom:20px;align-items:start;">
+  <div class="card">
+    <div class="section-title">Violation Type Breakdown</div>
+    {% for name, val in breakdown %}
+    <div class="hbar-row">
+      <div class="hbar-label">{{ name }}</div>
+      <div class="hbar-track"><div class="hbar-fill" style="width:{{ (val / max_val * 100) }}%;"></div></div>
+      <div class="hbar-val">{{ val }}</div>
+    </div>
+    {% endfor %}
+  </div>
+  <div class="grid grid-2">
+    <div class="card stat-card"><div class="stat-label">Total Violations</div><div class="stat-value">{{ total_violations }}</div></div>
+    <div class="card stat-card"><div class="stat-label">Total Penalty (KM)</div><div class="stat-value">{{ "{:,}".format(total_penalty) }}</div></div>
+    <div class="card stat-card"><div class="stat-label">Most Common</div><div class="stat-value" style="font-size:16px;">Calling While Driving</div></div>
+    <div class="card stat-card"><div class="stat-label">Days Tracked</div><div class="stat-value">{{ days_tracked }}</div></div>
+  </div>
+</div>
+
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th class="sortable"><a class="sort-link" href="{{ url_for('fleet_violations', sort='date', dir='desc' if current_sort=='date' and current_dir=='asc' else 'asc') }}">Date {% if current_sort=='date' %}{{ '▲' if current_dir=='asc' else '▼' }}{% else %}<span class="sort-ic">⇅</span>{% endif %}</a></th>
+        <th class="sortable"><a class="sort-link" href="{{ url_for('fleet_violations', sort='smoking', dir='desc' if current_sort=='smoking' and current_dir=='asc' else 'asc') }}">Smoking {% if current_sort=='smoking' %}{{ '▲' if current_dir=='asc' else '▼' }}{% else %}<span class="sort-ic">⇅</span>{% endif %}</a></th>
+        <th class="sortable"><a class="sort-link" href="{{ url_for('fleet_violations', sort='calling', dir='desc' if current_sort=='calling' and current_dir=='asc' else 'asc') }}">Calling {% if current_sort=='calling' %}{{ '▲' if current_dir=='asc' else '▼' }}{% else %}<span class="sort-ic">⇅</span>{% endif %}</a></th>
+        <th class="sortable"><a class="sort-link" href="{{ url_for('fleet_violations', sort='seatbelt', dir='desc' if current_sort=='seatbelt' and current_dir=='asc' else 'asc') }}">Seat Belt {% if current_sort=='seatbelt' %}{{ '▲' if current_dir=='asc' else '▼' }}{% else %}<span class="sort-ic">⇅</span>{% endif %}</a></th>
+        <th class="sortable"><a class="sort-link" href="{{ url_for('fleet_violations', sort='eating', dir='desc' if current_sort=='eating' and current_dir=='asc' else 'asc') }}">Eating/Drinking {% if current_sort=='eating' %}{{ '▲' if current_dir=='asc' else '▼' }}{% else %}<span class="sort-ic">⇅</span>{% endif %}</a></th>
+        <th class="sortable"><a class="sort-link" href="{{ url_for('fleet_violations', sort='uniform', dir='desc' if current_sort=='uniform' and current_dir=='asc' else 'asc') }}">Uniform {% if current_sort=='uniform' %}{{ '▲' if current_dir=='asc' else '▼' }}{% else %}<span class="sort-ic">⇅</span>{% endif %}</a></th>
+        <th class="sortable"><a class="sort-link" href="{{ url_for('fleet_violations', sort='total', dir='desc' if current_sort=='total' and current_dir=='asc' else 'asc') }}">Total {% if current_sort=='total' %}{{ '▲' if current_dir=='asc' else '▼' }}{% else %}<span class="sort-ic">⇅</span>{% endif %}</a></th>
+        <th class="sortable"><a class="sort-link" href="{{ url_for('fleet_violations', sort='penalty', dir='desc' if current_sort=='penalty' and current_dir=='asc' else 'asc') }}">Penalty (KM) {% if current_sort=='penalty' %}{{ '▲' if current_dir=='asc' else '▼' }}{% else %}<span class="sort-ic">⇅</span>{% endif %}</a></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for v in violations %}
+      <tr>
+        <td><b>{{ v.date_label }}</b></td>
+        <td>{{ v.smoking }}</td>
+        <td>{{ v.calling }}</td>
+        <td>{{ v.seatbelt }}</td>
+        <td>{{ v.eating }}</td>
+        <td>{{ v.uniform }}</td>
+        <td><b>{{ v.total }}</b></td>
+        <td>{{ "{:,}".format(v.penalty_km) }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% endblock %}

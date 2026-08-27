@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+{% block title %}Buses Stock{% endblock %}
+{% block crumb %}Buses Stock{% endblock %}
+{% block content %}
+
+<div class="page-head">
+  <div>
+    <h1 class="page-title">Buses Stock</h1>
+    <p class="page-sub">Finished bus units — ready for delivery or already dispatched</p>
+  </div>
+  <button class="btn btn-primary" onclick="openModal('modal-bus')">+ Add Bus Unit</button>
+</div>
+
+<div class="grid grid-3" style="margin-bottom:18px;">
+  <div class="card stat-card"><div class="stat-label">In Stock</div><div class="stat-value">{{ in_stock }}</div></div>
+  <div class="card stat-card"><div class="stat-label">Dispatched</div><div class="stat-value">{{ dispatched }}</div></div>
+  <div class="card stat-card"><div class="stat-label">Under QC</div><div class="stat-value">{{ under_qc }}</div></div>
+</div>
+
+<div class="table-wrap" style="margin-bottom:24px;">
+  <div class="toolbar">
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+      <input class="search-box" id="busSearch" placeholder="Search bus units..." onkeyup="filterBuses()" style="width:220px;">
+      <select id="busStatusFilter" onchange="filterBuses()" style="padding:9px 12px;border:1px solid var(--border);border-radius:8px;font-size:13.5px;background:#fff;">
+        <option value="All">All Status</option>
+        <option value="In Stock">In Stock</option>
+        <option value="Dispatched">Dispatched</option>
+        <option value="Under QC">Under QC</option>
+      </select>
+    </div>
+    <a href="{{ url_for('export_buses') }}" class="btn btn-outline btn-sm">⬇ Export</a>
+  </div>
+
+  {% if buses %}
+  <table>
+    <thead>
+      <tr>
+        <th class="sortable"><a class="sort-link" href="{{ url_for('inventory_buses', sort='unit_no', dir='desc' if current_sort=='unit_no' and current_dir=='asc' else 'asc') }}">Chassis / Unit No. {% if current_sort=='unit_no' %}{{ '▲' if current_dir=='asc' else '▼' }}{% else %}<span class="sort-ic">⇅</span>{% endif %}</a></th>
+        <th class="sortable"><a class="sort-link" href="{{ url_for('inventory_buses', sort='model', dir='desc' if current_sort=='model' and current_dir=='asc' else 'asc') }}">Model {% if current_sort=='model' %}{{ '▲' if current_dir=='asc' else '▼' }}{% else %}<span class="sort-ic">⇅</span>{% endif %}</a></th>
+        <th>Battery Fitted</th>
+        <th class="sortable"><a class="sort-link" href="{{ url_for('inventory_buses', sort='status', dir='desc' if current_sort=='status' and current_dir=='asc' else 'asc') }}">Status {% if current_sort=='status' %}{{ '▲' if current_dir=='asc' else '▼' }}{% else %}<span class="sort-ic">⇅</span>{% endif %}</a></th>
+        <th class="sortable"><a class="sort-link" href="{{ url_for('inventory_buses', sort='location', dir='desc' if current_sort=='location' and current_dir=='asc' else 'asc') }}">Location {% if current_sort=='location' %}{{ '▲' if current_dir=='asc' else '▼' }}{% else %}<span class="sort-ic">⇅</span>{% endif %}</a></th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody id="busesTable">
+      {% for b in buses %}
+      <tr data-status="{{ b.status }}">
+        <td><b>{{ b.unit_no }}</b></td>
+        <td>{{ b.model or '-' }}</td>
+        <td>
+          {% if b.battery_fitted == 'Yes' %}<span class="badge badge-green">Yes</span>
+          {% else %}<span class="badge badge-gray">No</span>{% endif %}
+        </td>
+        <td>
+          {% if b.status == 'Dispatched' %}<span class="badge badge-blue">{{ b.status }}</span>
+          {% elif b.status == 'Under QC' %}<span class="badge badge-amber">{{ b.status }}</span>
+          {% else %}<span class="badge badge-green">{{ b.status }}</span>
+          {% endif %}
+        </td>
+        <td>{{ b.location or '-' }}</td>
+        <td style="display:flex;gap:6px;">
+          <button class="btn btn-outline btn-sm" type="button"
+            onclick='editBus({{ b.id }}, {{ b.unit_no|tojson }}, {{ (b.model or "")|tojson }}, {{ b.battery_fitted|tojson }}, {{ b.status|tojson }}, {{ (b.location or "")|tojson }})'>Edit</button>
+          <form method="POST" action="{{ url_for('delete_bus', id=b.id) }}" style="display:inline;" onsubmit="return confirm('Delete this bus unit?');">
+            <button class="btn btn-danger btn-sm" type="submit">Delete</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty"><div class="icon">🚌</div><div>No bus units recorded yet.</div></div>
+  {% endif %}
+</div>
+
+<div class="card fade-in">
+  <div class="section-title">Buses by Status</div>
+  {% if status_breakdown %}
+    {% for name, val in status_breakdown %}
+    <div class="hbar-row">
+      <div class="hbar-label">{{ name }}</div>
+      <div class="hbar-track"><div class="hbar-fill animated-bar" style="--target-width:{{ (val / max_status * 100) }}%;"></div></div>
+      <div class="hbar-val">{{ val }}</div>
+    </div>
+    {% endfor %}
+  {% else %}
+    <p class="page-sub">No data yet — add bus units to see the status breakdown.</p>
+  {% endif %}
+</div>
+
+<!-- ADD MODAL -->
+<div class="overlay" id="modal-bus">
+  <div class="modal">
+    <h3>Add Bus Unit</h3>
+    <form method="POST" action="{{ url_for('add_bus') }}">
+      <div class="field"><label>Chassis / Unit No.</label><input name="unit_no" required placeholder="e.g. NEVF-CH-10231"></div>
+      <div class="two-col">
+        <div class="field"><label>Model</label><input name="model" placeholder="e.g. NEVF E-Bus 12m"></div>
+        <div class="field"><label>Battery Fitted</label><select name="battery_fitted"><option>Yes</option><option>No</option></select></div>
+      </div>
+      <div class="two-col">
+        <div class="field"><label>Status</label>
+          <select name="status"><option>In Stock</option><option>Dispatched</option><option>Under QC</option></select>
+        </div>
+        <div class="field"><label>Location</label><input name="location" placeholder="e.g. Taxila Plant Yard"></div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-outline" onclick="closeModal('modal-bus')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save Bus Unit</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- EDIT MODAL -->
+<div class="overlay" id="modal-edit-bus">
+  <div class="modal">
+    <h3>Edit Bus Unit</h3>
+    <form method="POST" id="edit-bus-form" action="">
+      <div class="field"><label>Chassis / Unit No.</label><input name="unit_no" id="eb-unit" required></div>
+      <div class="two-col">
+        <div class="field"><label>Model</label><input name="model" id="eb-model"></div>
+        <div class="field"><label>Battery Fitted</label><select name="battery_fitted" id="eb-battery"><option>Yes</option><option>No</option></select></div>
+      </div>
+      <div class="two-col">
+        <div class="field"><label>Status</label>
+          <select name="status" id="eb-status"><option>In Stock</option><option>Dispatched</option><option>Under QC</option></select>
+        </div>
+        <div class="field"><label>Location</label><input name="location" id="eb-location"></div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-outline" onclick="closeModal('modal-edit-bus')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save Changes</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function filterBuses(){
+  const search = document.getElementById('busSearch').value.toLowerCase();
+  const statusVal = document.getElementById('busStatusFilter').value;
+  document.querySelectorAll('#busesTable tr').forEach(function(row){
+    const rowStatus = row.getAttribute('data-status');
+    let visible = true;
+    if (search && !row.innerText.toLowerCase().includes(search)) visible = false;
+    if (statusVal !== 'All' && rowStatus !== statusVal) visible = false;
+    row.style.display = visible ? '' : 'none';
+  });
+}
+
+function editBus(id, unitNo, model, battery, status, location){
+  document.getElementById('edit-bus-form').action = '/inventory/buses/edit/' + id;
+  document.getElementById('eb-unit').value = unitNo;
+  document.getElementById('eb-model').value = model;
+  document.getElementById('eb-battery').value = battery;
+  document.getElementById('eb-status').value = status;
+  document.getElementById('eb-location').value = location;
+  openModal('modal-edit-bus');
+}
+</script>
+{% endblock %}

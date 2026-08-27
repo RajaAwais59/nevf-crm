@@ -1,0 +1,189 @@
+{% extends "base.html" %}
+{% block title %}Leads{% endblock %}
+{% block crumb %}Leads / Opportunities{% endblock %}
+{% block content %}
+
+<div class="page-head">
+  <div>
+    <h1 class="page-title">Leads / Opportunities</h1>
+    <p class="page-sub">Track potential government tenders and dealer inquiries</p>
+  </div>
+  <button class="btn btn-primary" onclick="openModal('modal-lead')">+ Add Lead</button>
+</div>
+
+<div class="grid grid-3" style="margin-bottom:18px;">
+  <div class="card stat-card"><div class="stat-label">Total Leads</div><div class="stat-value">{{ leads|length }}</div></div>
+  <div class="card stat-card"><div class="stat-label">Total Pipeline Value</div><div class="stat-value">PKR {{ "{:,.0f}".format(total_value) }}</div></div>
+  <div class="card stat-card"><div class="stat-label">Won Value</div><div class="stat-value">PKR {{ "{:,.0f}".format(won_value) }}</div></div>
+</div>
+
+<div class="table-wrap" style="margin-bottom:24px;">
+  <div class="toolbar">
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+      <input class="search-box" id="leadSearch" placeholder="Search leads..." onkeyup="filterLeads()" style="width:220px;">
+      <select id="leadStageFilter" onchange="filterLeads()" style="padding:9px 12px;border:1px solid var(--border);border-radius:8px;font-size:13.5px;background:#fff;">
+        <option value="All">All Stages</option>
+        <option value="New">New</option>
+        <option value="Contacted">Contacted</option>
+        <option value="Proposal Sent">Proposal Sent</option>
+        <option value="Negotiation">Negotiation</option>
+        <option value="Won">Won</option>
+        <option value="Lost">Lost</option>
+      </select>
+      <select id="leadTypeFilter" onchange="filterLeads()" style="padding:9px 12px;border:1px solid var(--border);border-radius:8px;font-size:13.5px;background:#fff;">
+        <option value="All">All Types</option>
+        <option value="Government Tender">Government Tender</option>
+        <option value="Dealer Inquiry">Dealer Inquiry</option>
+        <option value="Battery Supply">Battery Supply</option>
+      </select>
+    </div>
+    <a href="{{ url_for('export_leads') }}" class="btn btn-outline btn-sm">⬇ Export</a>
+  </div>
+
+  {% if leads %}
+  <table>
+    <thead>
+      <tr>
+        <th class="sortable"><a class="sort-link" href="{{ url_for('leads', sort='title', dir='desc' if current_sort=='title' and current_dir=='asc' else 'asc') }}">Lead / Opportunity {% if current_sort=='title' %}{{ '▲' if current_dir=='asc' else '▼' }}{% else %}<span class="sort-ic">⇅</span>{% endif %}</a></th>
+        <th class="sortable"><a class="sort-link" href="{{ url_for('leads', sort='lead_type', dir='desc' if current_sort=='lead_type' and current_dir=='asc' else 'asc') }}">Type {% if current_sort=='lead_type' %}{{ '▲' if current_dir=='asc' else '▼' }}{% else %}<span class="sort-ic">⇅</span>{% endif %}</a></th>
+        <th class="sortable"><a class="sort-link" href="{{ url_for('leads', sort='value', dir='desc' if current_sort=='value' and current_dir=='asc' else 'asc') }}">Est. Value {% if current_sort=='value' %}{{ '▲' if current_dir=='asc' else '▼' }}{% else %}<span class="sort-ic">⇅</span>{% endif %}</a></th>
+        <th class="sortable"><a class="sort-link" href="{{ url_for('leads', sort='stage', dir='desc' if current_sort=='stage' and current_dir=='asc' else 'asc') }}">Stage {% if current_sort=='stage' %}{{ '▲' if current_dir=='asc' else '▼' }}{% else %}<span class="sort-ic">⇅</span>{% endif %}</a></th>
+        <th class="sortable"><a class="sort-link" href="{{ url_for('leads', sort='expected_date', dir='desc' if current_sort=='expected_date' and current_dir=='asc' else 'asc') }}">Expected Date {% if current_sort=='expected_date' %}{{ '▲' if current_dir=='asc' else '▼' }}{% else %}<span class="sort-ic">⇅</span>{% endif %}</a></th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody id="leadsTable">
+      {% for l in leads %}
+      <tr data-stage="{{ l.stage }}" data-type="{{ l.lead_type }}">
+        <td><b>{{ l.title }}</b></td>
+        <td>{{ l.lead_type or '-' }}</td>
+        <td>PKR {{ "{:,.0f}".format(l.value) }}</td>
+        <td>
+          {% if l.stage == 'Won' %}<span class="badge badge-green">{{ l.stage }}</span>
+          {% elif l.stage == 'Lost' %}<span class="badge badge-red">{{ l.stage }}</span>
+          {% else %}<span class="badge badge-amber">{{ l.stage }}</span>
+          {% endif %}
+        </td>
+        <td>{{ l.expected_date or '-' }}</td>
+        <td style="display:flex;gap:6px;">
+          <button class="btn btn-outline btn-sm" type="button"
+            onclick='editLead({{ l.id }}, {{ l.title|tojson }}, {{ (l.lead_type or "")|tojson }}, {{ l.value|tojson }}, {{ l.stage|tojson }}, {{ (l.expected_date or "")|tojson }}, {{ (l.notes or "")|tojson }})'>Edit</button>
+          <form method="POST" action="{{ url_for('delete_lead', id=l.id) }}" style="display:inline;" onsubmit="return confirm('Delete this lead?');">
+            <button class="btn btn-danger btn-sm" type="submit">Delete</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty"><div class="icon">🎯</div><div>No leads yet. Click "+ Add Lead" to track a new opportunity.</div></div>
+  {% endif %}
+</div>
+
+<div class="card fade-in">
+  <div class="section-title">Leads by Stage</div>
+  {% if stage_breakdown %}
+    {% for name, val in stage_breakdown %}
+    <div class="hbar-row">
+      <div class="hbar-label">{{ name }}</div>
+      <div class="hbar-track"><div class="hbar-fill animated-bar" style="--target-width:{{ (val / max_stage * 100) }}%;"></div></div>
+      <div class="hbar-val">{{ val }}</div>
+    </div>
+    {% endfor %}
+  {% else %}
+    <p class="page-sub">No data yet — add leads to see the pipeline breakdown.</p>
+  {% endif %}
+</div>
+
+<!-- ADD MODAL -->
+<div class="overlay" id="modal-lead">
+  <div class="modal">
+    <h3>Add Lead / Opportunity</h3>
+    <form method="POST" action="{{ url_for('add_lead') }}">
+      <div class="field"><label>Title</label><input name="title" required placeholder="e.g. Multan City Bus Tender"></div>
+      <div class="two-col">
+        <div class="field"><label>Type</label>
+          <select name="lead_type"><option>Government Tender</option><option>Dealer Inquiry</option><option>Battery Supply</option></select>
+        </div>
+        <div class="field"><label>Estimated Value (PKR)</label><input type="number" name="value" placeholder="0"></div>
+      </div>
+      <div class="two-col">
+        <div class="field"><label>Stage</label>
+          <select name="stage">
+            <option>New</option><option>Contacted</option><option>Proposal Sent</option>
+            <option>Negotiation</option><option>Won</option><option>Lost</option>
+          </select>
+        </div>
+        <div class="field"><label>Expected Date</label><input type="date" name="expected_date"></div>
+      </div>
+      <div class="field"><label>Notes</label><textarea name="notes"></textarea></div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-outline" onclick="closeModal('modal-lead')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save Lead</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- EDIT MODAL -->
+<div class="overlay" id="modal-edit-lead">
+  <div class="modal">
+    <h3>Edit Lead / Opportunity</h3>
+    <form method="POST" id="edit-lead-form" action="">
+      <div class="field"><label>Title</label><input name="title" id="el-title" required></div>
+      <div class="two-col">
+        <div class="field"><label>Type</label>
+          <select name="lead_type" id="el-type"><option>Government Tender</option><option>Dealer Inquiry</option><option>Battery Supply</option></select>
+        </div>
+        <div class="field"><label>Estimated Value (PKR)</label><input type="number" name="value" id="el-value"></div>
+      </div>
+      <div class="two-col">
+        <div class="field"><label>Stage</label>
+          <select name="stage" id="el-stage">
+            <option>New</option><option>Contacted</option><option>Proposal Sent</option>
+            <option>Negotiation</option><option>Won</option><option>Lost</option>
+          </select>
+        </div>
+        <div class="field"><label>Expected Date</label><input type="date" name="expected_date" id="el-date"></div>
+      </div>
+      <div class="field"><label>Notes</label><textarea name="notes" id="el-notes"></textarea></div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-outline" onclick="closeModal('modal-edit-lead')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save Changes</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function filterLeads(){
+  const search = document.getElementById('leadSearch').value.toLowerCase();
+  const stageVal = document.getElementById('leadStageFilter').value;
+  const typeVal = document.getElementById('leadTypeFilter').value;
+  document.querySelectorAll('#leadsTable tr').forEach(function(row){
+    const rowStage = row.getAttribute('data-stage');
+    const rowType = row.getAttribute('data-type');
+    let visible = true;
+    if (search && !row.innerText.toLowerCase().includes(search)) visible = false;
+    if (stageVal !== 'All' && rowStage !== stageVal) visible = false;
+    if (typeVal !== 'All' && rowType !== typeVal) visible = false;
+    row.style.display = visible ? '' : 'none';
+  });
+}
+
+function editLead(id, title, leadType, value, stage, expectedDate, notes){
+  document.getElementById('edit-lead-form').action = '/leads/edit/' + id;
+  document.getElementById('el-title').value = title;
+  document.getElementById('el-type').value = leadType;
+  document.getElementById('el-value').value = value;
+  document.getElementById('el-stage').value = stage;
+  document.getElementById('el-date').value = expectedDate;
+  document.getElementById('el-notes').value = notes;
+  openModal('modal-edit-lead');
+}
+</script>
+{% endblock %}

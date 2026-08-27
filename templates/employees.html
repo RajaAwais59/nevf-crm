@@ -1,0 +1,299 @@
+{% extends "base.html" %}
+{% block title %}Employees{% endblock %}
+{% block crumb %}Employees{% endblock %}
+{% block content %}
+
+<div class="page-head">
+  <div>
+    <h1 class="page-title">Employees</h1>
+    <p class="page-sub">Company staff directory &amp; reporting hierarchy</p>
+  </div>
+  <div style="display:flex;gap:10px;">
+    <a href="{{ url_for('export_employees') }}" class="btn btn-outline">⬇ Export</a>
+    <button class="btn btn-primary" onclick="openModal('modal-employee')">+ Add Employee</button>
+  </div>
+</div>
+
+<div class="grid grid-3" style="margin-bottom:18px;">
+  <div class="card stat-card fade-in"><div class="stat-label">Total Employees</div><div class="stat-value count-up" data-target="{{ total }}">0</div></div>
+  <div class="card stat-card fade-in" style="animation-delay:.05s;"><div class="stat-label">Active</div><div class="stat-value count-up" data-target="{{ active_count }}">0</div></div>
+  <div class="card stat-card fade-in" style="animation-delay:.1s;"><div class="stat-label">Departments</div><div class="stat-value count-up" data-target="{{ dept_breakdown|length }}">0</div></div>
+</div>
+
+<!-- ================= ORG CHART ================= -->
+<div class="card fade-in" style="margin-bottom:24px;">
+  <div class="section-title">Reporting Structure</div>
+  <div class="org-chart">
+    {% for top in top_level %}
+    <div class="org-node org-root">
+      <div class="org-card">
+        {% if top.photo_filename %}
+          <img class="org-photo" src="{{ url_for('static', filename='uploads/employees/' + top.photo_filename) }}" alt="{{ top.name }}">
+        {% else %}
+          <div class="org-avatar">{{ top.name[0] }}</div>
+        {% endif %}
+        <div class="org-name">{{ top.name }}</div>
+        <div class="org-role">{{ top.designation or '—' }}</div>
+      </div>
+      {% if top.direct_reports %}
+      <div class="org-children">
+        {% for child in top.direct_reports %}
+        <div class="org-node">
+          <div class="org-card org-card-sub">
+            {% if child.photo_filename %}
+              <img class="org-photo org-photo-sub" src="{{ url_for('static', filename='uploads/employees/' + child.photo_filename) }}" alt="{{ child.name }}">
+            {% else %}
+              <div class="org-avatar org-avatar-sub">{{ child.name[0] }}</div>
+            {% endif %}
+            <div class="org-name">{{ child.name }}</div>
+            <div class="org-role">{{ child.designation or '—' }}</div>
+          </div>
+          {% if child.direct_reports %}
+          <div class="org-children">
+            {% for grandchild in child.direct_reports %}
+            <div class="org-node">
+              <div class="org-card org-card-leaf">
+                {% if grandchild.photo_filename %}
+                  <img class="org-photo org-photo-leaf" src="{{ url_for('static', filename='uploads/employees/' + grandchild.photo_filename) }}" alt="{{ grandchild.name }}">
+                {% else %}
+                  <div class="org-avatar org-avatar-leaf">{{ grandchild.name[0] }}</div>
+                {% endif %}
+                <div class="org-name">{{ grandchild.name }}</div>
+                <div class="org-role">{{ grandchild.designation or '—' }}</div>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+    {% endfor %}
+
+    {% if not top_level %}
+    <div class="empty"><div class="icon">👔</div><div>No employees yet. Add your first employee — start with the most senior person, they'll appear at the top of the chart.</div></div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- ================= FILTER + TABLE ================= -->
+<div class="table-wrap" style="margin-bottom:24px;">
+  <div class="toolbar">
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+      <input class="search-box" id="empSearch" placeholder="Search employees..." onkeyup="filterEmployees()" style="width:220px;">
+      <select id="empDeptFilter" onchange="filterEmployees()" style="padding:9px 12px;border:1px solid var(--border);border-radius:8px;font-size:13.5px;background:#fff;">
+        <option value="All">All Departments</option>
+        {% for dept, _ in dept_breakdown %}
+        <option value="{{ dept }}">{{ dept }}</option>
+        {% endfor %}
+      </select>
+      <select id="empStatusFilter" onchange="filterEmployees()" style="padding:9px 12px;border:1px solid var(--border);border-radius:8px;font-size:13.5px;background:#fff;">
+        <option value="All">All Status</option>
+        <option value="Active">Active</option>
+        <option value="On Leave">On Leave</option>
+        <option value="Resigned">Resigned</option>
+      </select>
+    </div>
+  </div>
+
+  {% if employees %}
+  <table>
+    <thead>
+      <tr>
+        <th>Photo</th>
+        <th onclick="sortEmployees(2)" class="sortable">Name <span class="sort-ic">⇅</span></th>
+        <th onclick="sortEmployees(3)" class="sortable">Designation <span class="sort-ic">⇅</span></th>
+        <th onclick="sortEmployees(4)" class="sortable">Department <span class="sort-ic">⇅</span></th>
+        <th>Reports To</th>
+        <th>Phone</th>
+        <th onclick="sortEmployees(7)" class="sortable">Status <span class="sort-ic">⇅</span></th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody id="employeesTable">
+      {% for e in employees %}
+      <tr data-dept="{{ e.department or '' }}" data-status="{{ e.status }}">
+        <td>
+          {% if e.photo_filename %}
+            <img class="table-avatar" src="{{ url_for('static', filename='uploads/employees/' + e.photo_filename) }}" alt="{{ e.name }}">
+          {% else %}
+            <div class="table-avatar-fallback">{{ e.name[0] }}</div>
+          {% endif %}
+        </td>
+        <td><b>{{ e.name }}</b></td>
+        <td>{{ e.designation or '-' }}</td>
+        <td>{{ e.department or '-' }}</td>
+        <td>{{ e.manager.name if e.manager else '—' }}</td>
+        <td>{{ e.phone or '-' }}</td>
+        <td>
+          {% if e.status == 'Active' %}<span class="badge badge-green">{{ e.status }}</span>
+          {% elif e.status == 'On Leave' %}<span class="badge badge-amber">{{ e.status }}</span>
+          {% else %}<span class="badge badge-gray">{{ e.status }}</span>{% endif %}
+        </td>
+        <td style="display:flex;gap:6px;">
+          <button class="btn btn-outline btn-sm" type="button"
+            onclick='editEmployee({{ e.id }}, {{ e.name|tojson }}, {{ (e.designation or "")|tojson }}, {{ (e.department or "")|tojson }}, {{ (e.phone or "")|tojson }}, {{ (e.email or "")|tojson }}, {{ e.status|tojson }}, {{ (e.joining_date or "")|tojson }}, {{ (e.plant_id or "")|tojson }}, {{ (e.reports_to_id or "")|tojson }})'>Edit</button>
+          <form method="POST" action="{{ url_for('delete_employee', id=e.id) }}" style="display:inline;" onsubmit="return confirm('Delete this employee?');">
+            <button class="btn btn-danger btn-sm" type="submit">Delete</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty"><div class="icon">👔</div><div>No employees recorded yet.</div></div>
+  {% endif %}
+</div>
+
+<!-- ================= DEPARTMENT CHART ================= -->
+<div class="card fade-in">
+  <div class="section-title">Employees by Department</div>
+  {% if dept_breakdown %}
+    {% for name, val in dept_breakdown %}
+    <div class="hbar-row">
+      <div class="hbar-label">{{ name }}</div>
+      <div class="hbar-track"><div class="hbar-fill animated-bar" style="--target-width:{{ (val / max_dept * 100) }}%;"></div></div>
+      <div class="hbar-val">{{ val }}</div>
+    </div>
+    {% endfor %}
+  {% else %}
+    <p class="page-sub">No data yet — add employees to see the department breakdown.</p>
+  {% endif %}
+</div>
+
+<!-- ================= ADD MODAL ================= -->
+<div class="overlay" id="modal-employee">
+  <div class="modal">
+    <h3>Add Employee</h3>
+    <div class="modal-sub">Add a team member and place them in the reporting structure</div>
+    <form method="POST" action="{{ url_for('add_employee') }}" enctype="multipart/form-data">
+      <div class="field"><label>Photo (optional)</label><input type="file" name="photo" accept=".png,.jpg,.jpeg"></div>
+      <div class="field"><label>Full Name</label><input name="name" required placeholder="e.g. Sir Zaheer"></div>
+      <div class="two-col">
+        <div class="field"><label>Designation</label><input name="designation" placeholder="e.g. General Manager"></div>
+        <div class="field"><label>Department</label>
+          <select name="department">
+            <option>Management</option><option>PMO</option><option>Manufacturing</option>
+            <option>Sales</option><option>Fleet Operations</option><option>Supply Chain</option><option>Admin</option>
+          </select>
+        </div>
+      </div>
+      <div class="field"><label>Reports To</label>
+        <select name="reports_to_id">
+          <option value="">— No one (top of hierarchy) —</option>
+          {% for e in employees %}
+          <option value="{{ e.id }}">{{ e.name }} ({{ e.designation or 'No title' }})</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="two-col">
+        <div class="field"><label>Phone</label><input name="phone" placeholder="03xx-xxxxxxx"></div>
+        <div class="field"><label>Email</label><input name="email" type="email" placeholder="name@example.com"></div>
+      </div>
+      <div class="two-col">
+        <div class="field"><label>Status</label>
+          <select name="status"><option>Active</option><option>On Leave</option><option>Resigned</option></select>
+        </div>
+        <div class="field"><label>Joining Date</label><input name="joining_date" type="date"></div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-outline" onclick="closeModal('modal-employee')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save Employee</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ================= EDIT MODAL ================= -->
+<div class="overlay" id="modal-edit-employee">
+  <div class="modal">
+    <h3>Edit Employee</h3>
+    <form method="POST" id="edit-emp-form" action="" enctype="multipart/form-data">
+      <div class="field"><label>Photo (upload to replace)</label><input type="file" name="photo" accept=".png,.jpg,.jpeg"></div>
+      <div class="field"><label>Full Name</label><input name="name" id="ee-name" required></div>
+      <div class="two-col">
+        <div class="field"><label>Designation</label><input name="designation" id="ee-designation"></div>
+        <div class="field"><label>Department</label>
+          <select name="department" id="ee-department">
+            <option>Management</option><option>PMO</option><option>Manufacturing</option>
+            <option>Sales</option><option>Fleet Operations</option><option>Supply Chain</option><option>Admin</option>
+          </select>
+        </div>
+      </div>
+      <div class="field"><label>Reports To</label>
+        <select name="reports_to_id" id="ee-reports-to">
+          <option value="">— No one (top of hierarchy) —</option>
+          {% for e in employees %}
+          <option value="{{ e.id }}">{{ e.name }} ({{ e.designation or 'No title' }})</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="two-col">
+        <div class="field"><label>Phone</label><input name="phone" id="ee-phone"></div>
+        <div class="field"><label>Email</label><input name="email" id="ee-email" type="email"></div>
+      </div>
+      <div class="two-col">
+        <div class="field"><label>Status</label>
+          <select name="status" id="ee-status"><option>Active</option><option>On Leave</option><option>Resigned</option></select>
+        </div>
+        <div class="field"><label>Joining Date</label><input name="joining_date" id="ee-joining" type="date"></div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-outline" onclick="closeModal('modal-edit-employee')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save Changes</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function filterEmployees(){
+  const search = document.getElementById('empSearch').value.toLowerCase();
+  const deptVal = document.getElementById('empDeptFilter').value;
+  const statusVal = document.getElementById('empStatusFilter').value;
+  document.querySelectorAll('#employeesTable tr').forEach(function(row){
+    const rowDept = row.getAttribute('data-dept');
+    const rowStatus = row.getAttribute('data-status');
+    let visible = true;
+    if (search && !row.innerText.toLowerCase().includes(search)) visible = false;
+    if (deptVal !== 'All' && rowDept !== deptVal) visible = false;
+    if (statusVal !== 'All' && rowStatus !== statusVal) visible = false;
+    row.style.display = visible ? '' : 'none';
+  });
+}
+
+let empSortDir = {};
+function sortEmployees(colIndex){
+  const tbody = document.getElementById('employeesTable');
+  const rows = Array.from(tbody.querySelectorAll('tr'));
+  empSortDir[colIndex] = !empSortDir[colIndex];
+  rows.sort(function(a, b){
+    const av = a.children[colIndex].innerText.trim().toLowerCase();
+    const bv = b.children[colIndex].innerText.trim().toLowerCase();
+    if (av < bv) return empSortDir[colIndex] ? -1 : 1;
+    if (av > bv) return empSortDir[colIndex] ? 1 : -1;
+    return 0;
+  });
+  rows.forEach(r => tbody.appendChild(r));
+}
+
+function editEmployee(id, name, designation, department, phone, email, status, joining, plantId, reportsTo){
+  document.getElementById('edit-emp-form').action = '/employees/edit/' + id;
+  document.getElementById('ee-name').value = name;
+  document.getElementById('ee-designation').value = designation;
+  document.getElementById('ee-department').value = department;
+  document.getElementById('ee-phone').value = phone;
+  document.getElementById('ee-email').value = email;
+  document.getElementById('ee-status').value = status;
+  document.getElementById('ee-joining').value = joining;
+  document.getElementById('ee-reports-to').value = reportsTo;
+  openModal('modal-edit-employee');
+}
+</script>
+{% endblock %}

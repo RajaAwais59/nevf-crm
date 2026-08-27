@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Settings{% endblock %}
+{% block crumb %}Settings / Users{% endblock %}
+{% block content %}
+
+<div class="page-head">
+  <div>
+    <h1 class="page-title">Settings / Users</h1>
+    <p class="page-sub">Manage company profile &amp; system users</p>
+  </div>
+</div>
+
+<div class="tabs" id="settingsTabs">
+  <div class="tab active" onclick="showTab('settingsTabs','panel-company',this)">Company Profile</div>
+  <div class="tab" onclick="showTab('settingsTabs','panel-users',this)">Users</div>
+</div>
+
+<div class="tab-panel active" id="panel-company">
+  <div class="card" style="max-width:600px;">
+    <div class="section-title">Company Information</div>
+    <form method="POST" action="{{ url_for('save_settings') }}">
+      <div class="field"><label>Company Name</label><input name="company_name" value="{{ settings.company_name }}"></div>
+      <div class="two-col">
+        <div class="field"><label>Manufacturing Target (Buses)</label><input type="number" name="manufacturing_target" value="{{ settings.manufacturing_target }}"></div>
+        <div class="field"><label>Currency</label><input name="currency" value="{{ settings.currency }}"></div>
+      </div>
+      <button type="submit" class="btn btn-primary">Save Changes</button>
+    </form>
+  </div>
+</div>
+
+<div class="tab-panel" id="panel-users">
+  <div class="table-wrap">
+    <div class="toolbar">
+      <b style="font-size:14px;">System Users</b>
+      <button class="btn btn-primary btn-sm" onclick="openModal('modal-user')">+ Add User</button>
+    </div>
+    <table>
+      <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Action</th></tr></thead>
+      <tbody>
+        {% for u in users %}
+        <tr>
+          <td><b>{{ u.name }}</b></td>
+          <td>{{ u.email or '-' }}</td>
+          <td><span class="badge badge-blue">{{ u.role }}</span></td>
+          <td><span class="badge badge-green">{{ u.status }}</span></td>
+          <td>
+            <form method="POST" action="{{ url_for('delete_user', id=u.id) }}" style="display:inline;" onsubmit="return confirm('Delete this user?');">
+              <button class="btn btn-danger btn-sm" type="submit">Delete</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="overlay" id="modal-user">
+  <div class="modal">
+    <h3>Add User</h3>
+    <form method="POST" action="{{ url_for('add_user') }}">
+      <div class="field"><label>Full Name</label><input name="name" required></div>
+      <div class="field"><label>Email</label><input name="email" type="email"></div>
+      <div class="field"><label>Role</label>
+        <select name="role"><option>Owner</option><option>Admin</option><option>Staff</option></select>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-outline" onclick="closeModal('modal-user')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save User</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% endblock %}

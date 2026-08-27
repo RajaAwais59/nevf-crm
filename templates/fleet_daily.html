@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Daily Summary{% endblock %}
+{% block crumb %}Fleet Operations &gt; Daily Summary{% endblock %}
+{% block content %}
+
+<div class="page-head">
+  <div>
+    <h1 class="page-title">Daily Summary</h1>
+    <p class="page-sub">Day-by-day fleet operations — 01 July to 13 July 2026</p>
+  </div>
+  <a href="{{ url_for('export_daily') }}" class="btn btn-outline">⬇ Export</a>
+</div>
+
+<div class="card" style="margin-bottom:20px;">
+  <div class="section-title">Delay % Trend</div>
+  <div class="bar-chart">
+    {% for d in daily %}
+    <div class="bar-col">
+      <div class="val">{{ d.delay_pct }}%</div>
+      <div class="bar" style="height:{{ (d.delay_pct / max_delay * 100) }}%;"></div>
+      <div class="lbl">{{ d.date_label }}</div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th class="sortable"><a class="sort-link" href="{{ url_for('fleet_daily', sort='date', dir='desc' if current_sort=='date' and current_dir=='asc' else 'asc') }}">Date {% if current_sort=='date' %}{{ '▲' if current_dir=='asc' else '▼' }}{% else %}<span class="sort-ic">⇅</span>{% endif %}</a></th>
+        <th class="sortable"><a class="sort-link" href="{{ url_for('fleet_daily', sort='buses', dir='desc' if current_sort=='buses' and current_dir=='asc' else 'asc') }}">Buses {% if current_sort=='buses' %}{{ '▲' if current_dir=='asc' else '▼' }}{% else %}<span class="sort-ic">⇅</span>{% endif %}</a></th>
+        <th class="sortable"><a class="sort-link" href="{{ url_for('fleet_daily', sort='routes', dir='desc' if current_sort=='routes' and current_dir=='asc' else 'asc') }}">Routes {% if current_sort=='routes' %}{{ '▲' if current_dir=='asc' else '▼' }}{% else %}<span class="sort-ic">⇅</span>{% endif %}</a></th>
+        <th class="sortable"><a class="sort-link" href="{{ url_for('fleet_daily', sort='planned', dir='desc' if current_sort=='planned' and current_dir=='asc' else 'asc') }}">Planned {% if current_sort=='planned' %}{{ '▲' if current_dir=='asc' else '▼' }}{% else %}<span class="sort-ic">⇅</span>{% endif %}</a></th>
+        <th class="sortable"><a class="sort-link" href="{{ url_for('fleet_daily', sort='matured', dir='desc' if current_sort=='matured' and current_dir=='asc' else 'asc') }}">Matured {% if current_sort=='matured' %}{{ '▲' if current_dir=='asc' else '▼' }}{% else %}<span class="sort-ic">⇅</span>{% endif %}</a></th>
+        <th class="sortable"><a class="sort-link" href="{{ url_for('fleet_daily', sort='delayed', dir='desc' if current_sort=='delayed' and current_dir=='asc' else 'asc') }}">Delayed {% if current_sort=='delayed' %}{{ '▲' if current_dir=='asc' else '▼' }}{% else %}<span class="sort-ic">⇅</span>{% endif %}</a></th>
+        <th class="sortable"><a class="sort-link" href="{{ url_for('fleet_daily', sort='delay_pct', dir='desc' if current_sort=='delay_pct' and current_dir=='asc' else 'asc') }}">Delay % {% if current_sort=='delay_pct' %}{{ '▲' if current_dir=='asc' else '▼' }}{% else %}<span class="sort-ic">⇅</span>{% endif %}</a></th>
+        <th class="sortable"><a class="sort-link" href="{{ url_for('fleet_daily', sort='violations', dir='desc' if current_sort=='violations' and current_dir=='asc' else 'asc') }}">Violations {% if current_sort=='violations' %}{{ '▲' if current_dir=='asc' else '▼' }}{% else %}<span class="sort-ic">⇅</span>{% endif %}</a></th>
+        <th class="sortable"><a class="sort-link" href="{{ url_for('fleet_daily', sort='penalty', dir='desc' if current_sort=='penalty' and current_dir=='asc' else 'asc') }}">Penalty (KM) {% if current_sort=='penalty' %}{{ '▲' if current_dir=='asc' else '▼' }}{% else %}<span class="sort-ic">⇅</span>{% endif %}</a></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for d in daily %}
+      <tr>
+        <td><b>{{ d.date_label }}</b></td>
+        <td>{{ d.buses }}</td>
+        <td>{{ d.routes }}</td>
+        <td>{{ "{:,}".format(d.planned_trips) }}</td>
+        <td>{{ "{:,}".format(d.matured_trips) }}</td>
+        <td>{{ d.delayed_trips }}</td>
+        <td>
+          {% if d.delay_pct > 12 %}<span class="badge badge-red">{{ d.delay_pct }}%</span>
+          {% elif d.delay_pct > 7 %}<span class="badge badge-amber">{{ d.delay_pct }}%</span>
+          {% else %}<span class="badge badge-green">{{ d.delay_pct }}%</span>
+          {% endif %}
+        </td>
+        <td>{{ d.violations }}</td>
+        <td>{{ "{:,}".format(d.penalty_km) }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% endblock %}

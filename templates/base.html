@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% block title %}Dashboard{% endblock %} | NEVF</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+<div class="app">
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="sidebar-logo">
+      <div class="mark"><img src="{{ url_for('static', filename='images/nevf-logo.png') }}" alt="NEVF Logo"></div>
+      <div>
+        <div class="name">NEVF™</div>
+        <span class="sub">FLEET &amp; BUSINESS SYSTEM</span>
+      </div>
+    </div>
+
+    <div class="nav-section">Overview</div>
+    <a href="{{ url_for('dashboard') }}" class="nav-item {{ 'active' if active=='dashboard' }}"><span class="ic">▦</span> Dashboard</a>
+
+    <div class="nav-section">Sales &amp; CRM</div>
+    <a href="{{ url_for('customers') }}" class="nav-item {{ 'active' if active=='customers' }}"><span class="ic">👤</span> Customers</a>
+    <a href="{{ url_for('leads') }}" class="nav-item {{ 'active' if active=='leads' }}"><span class="ic">🎯</span> Leads / Opportunities</a>
+    <a href="{{ url_for('contracts') }}" class="nav-item {{ 'active' if active=='contracts' }}"><span class="ic">📄</span> Contracts &amp; Orders</a>
+
+    <div class="nav-section">Manufacturing</div>
+    <a href="{{ url_for('plants') }}" class="nav-item {{ 'active' if active=='plants' }}"><span class="ic">🏗️</span> Plants / Shops</a>
+    <a href="{{ url_for('production') }}" class="nav-item {{ 'active' if active=='production' }}"><span class="ic">🏭</span> Production Batches</a>
+
+    <div class="nav-section">Inventory</div>
+    <a href="{{ url_for('inventory_buses') }}" class="nav-item {{ 'active' if active=='inv_buses' }}"><span class="ic">🚌</span> Buses Stock</a>
+    <a href="{{ url_for('inventory_batteries') }}" class="nav-item {{ 'active' if active=='inv_batteries' }}"><span class="ic">🔋</span> Batteries Stock</a>
+
+    <div class="nav-section">Fleet Operations</div>
+    <a href="{{ url_for('fleet_city') }}" class="nav-item {{ 'active' if active=='fleet_city' }}"><span class="ic">🗺️</span> City Summary</a>
+    <a href="{{ url_for('fleet_daily') }}" class="nav-item {{ 'active' if active=='fleet_daily' }}"><span class="ic">📈</span> Daily Summary</a>
+    <a href="{{ url_for('fleet_violations') }}" class="nav-item {{ 'active' if active=='fleet_violations' }}"><span class="ic">⚠️</span> Driver Violations</a>
+
+    <div class="nav-section">Human Resources</div>
+    <a href="{{ url_for('employees') }}" class="nav-item {{ 'active' if active=='employees' }}"><span class="ic">👔</span> Employees</a>
+
+    <div class="nav-section">Supply Chain</div>
+    <a href="{{ url_for('shipments') }}" class="nav-item {{ 'active' if active=='shipments' }}"><span class="ic">🚢</span> Shipments</a>
+
+    <div class="nav-section">System</div>
+    <a href="{{ url_for('settings_page') }}" class="nav-item {{ 'active' if active=='settings' }}"><span class="ic">⚙️</span> Settings / Users</a>
+
+    <div class="sidebar-footer">NEVF CRM v1.0<br>100% Offline — runs on this PC only</div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+    <div class="topbar">
+      <div class="crumbs"><b>{% block crumb %}Dashboard{% endblock %}</b></div>
+      <div class="topbar-right">
+        <div class="search-wrap">
+  <input class="search-box" placeholder="Search across NEVF..." />
+  <div class="search-results" id="searchResults"></div>
+</div>
+        <button class="print-btn no-print" onclick="window.print()">🖨️ Print / PDF</button>
+        <div class="user-chip"><div class="avatar">AN</div> Awais Nadeem</div>
+      </div>
+    </div>
+
+    <div class="content">
+      {% with messages = get_flashed_messages() %}
+        {% if messages %}
+          {% for m in messages %}
+            <div class="flash-banner">{{ m }}</div>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
+
+      {% block content %}{% endblock %}
+    </div>
+  </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

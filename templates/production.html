@@ -1,0 +1,186 @@
+{% extends "base.html" %}
+{% block title %}Production{% endblock %}
+{% block crumb %}Production Batches{% endblock %}
+{% block content %}
+
+<div class="page-head">
+  <div>
+    <h1 class="page-title">Manufacturing Batches</h1>
+    <p class="page-sub">Track buses produced against the {{ "{:,}".format(target) }} unit target</p>
+  </div>
+  <button class="btn btn-primary" onclick="openModal('modal-production')">+ Log Production Batch</button>
+</div>
+
+<div class="card" style="margin-bottom:20px;">
+  <div class="section-title">Overall Progress</div>
+  <div class="progress-track"><div class="progress-fill" style="width:{{ pct }}%;"></div></div>
+  <div style="display:flex;justify-content:space-between;margin-top:10px;font-size:13px;color:var(--text-muted);">
+    <span>{{ "{:,}".format(total_units) }} of {{ "{:,}".format(target) }} manufactured</span>
+    <span>{{ pct }}%</span>
+  </div>
+</div>
+
+<div class="table-wrap" style="margin-bottom:24px;">
+  <div class="toolbar">
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+      <input class="search-box" id="prodSearch" placeholder="Search batches..." onkeyup="filterProduction()" style="width:220px;">
+      <select id="prodQcFilter" onchange="filterProduction()" style="padding:9px 12px;border:1px solid var(--border);border-radius:8px;font-size:13.5px;background:#fff;">
+        <option value="All">All QC Status</option>
+        <option value="Passed">Passed</option>
+        <option value="Pending">Pending</option>
+        <option value="Rework">Rework</option>
+      </select>
+    </div>
+    <a href="{{ url_for('export_production') }}" class="btn btn-outline btn-sm">⬇ Export</a>
+  </div>
+
+  {% if batches %}
+  <table>
+    <thead>
+      <tr>
+        <th class="sortable"><a class="sort-link" href="{{ url_for('production', sort='batch_id', dir='desc' if current_sort=='batch_id' and current_dir=='asc' else 'asc') }}">Batch ID {% if current_sort=='batch_id' %}{{ '▲' if current_dir=='asc' else '▼' }}{% else %}<span class="sort-ic">⇅</span>{% endif %}</a></th>
+        <th class="sortable"><a class="sort-link" href="{{ url_for('production', sort='model', dir='desc' if current_sort=='model' and current_dir=='asc' else 'asc') }}">Model {% if current_sort=='model' %}{{ '▲' if current_dir=='asc' else '▼' }}{% else %}<span class="sort-ic">⇅</span>{% endif %}</a></th>
+        <th class="sortable"><a class="sort-link" href="{{ url_for('production', sort='units', dir='desc' if current_sort=='units' and current_dir=='asc' else 'asc') }}">Units Produced {% if current_sort=='units' %}{{ '▲' if current_dir=='asc' else '▼' }}{% else %}<span class="sort-ic">⇅</span>{% endif %}</a></th>
+        <th>Plant</th>
+        <th class="sortable"><a class="sort-link" href="{{ url_for('production', sort='date', dir='desc' if current_sort=='date' and current_dir=='asc' else 'asc') }}">Date {% if current_sort=='date' %}{{ '▲' if current_dir=='asc' else '▼' }}{% else %}<span class="sort-ic">⇅</span>{% endif %}</a></th>
+        <th class="sortable"><a class="sort-link" href="{{ url_for('production', sort='qc_status', dir='desc' if current_sort=='qc_status' and current_dir=='asc' else 'asc') }}">QC Status {% if current_sort=='qc_status' %}{{ '▲' if current_dir=='asc' else '▼' }}{% else %}<span class="sort-ic">⇅</span>{% endif %}</a></th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody id="productionTable">
+      {% for b in batches %}
+      <tr data-qc="{{ b.qc_status }}">
+        <td><b>{{ b.batch_id }}</b></td>
+        <td>{{ b.model or '-' }}</td>
+        <td>{{ b.units }}</td>
+        <td>{{ b.plant.name if b.plant else '-' }}</td>
+        <td>{{ b.date or '-' }}</td>
+        <td>
+          {% if b.qc_status == 'Passed' %}<span class="badge badge-green">{{ b.qc_status }}</span>
+          {% elif b.qc_status == 'Rework' %}<span class="badge badge-red">{{ b.qc_status }}</span>
+          {% else %}<span class="badge badge-amber">{{ b.qc_status }}</span>
+          {% endif %}
+        </td>
+        <td style="display:flex;gap:6px;">
+          <button class="btn btn-outline btn-sm" type="button"
+            onclick='editProduction({{ b.id }}, {{ b.batch_id|tojson }}, {{ (b.model or "")|tojson }}, {{ b.units|tojson }}, {{ (b.plant_id or "")|tojson }}, {{ (b.date or "")|tojson }}, {{ b.qc_status|tojson }})'>Edit</button>
+          <form method="POST" action="{{ url_for('delete_production', id=b.id) }}" style="display:inline;" onsubmit="return confirm('Delete this batch?');">
+            <button class="btn btn-danger btn-sm" type="submit">Delete</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty"><div class="icon">🏭</div><div>No production batches logged yet.</div></div>
+  {% endif %}
+</div>
+
+<div class="card fade-in">
+  <div class="section-title">Batches by QC Status</div>
+  {% if qc_breakdown %}
+    {% for name, val in qc_breakdown %}
+    <div class="hbar-row">
+      <div class="hbar-label">{{ name }}</div>
+      <div class="hbar-track"><div class="hbar-fill animated-bar" style="--target-width:{{ (val / max_qc * 100) }}%;"></div></div>
+      <div class="hbar-val">{{ val }}</div>
+    </div>
+    {% endfor %}
+  {% else %}
+    <p class="page-sub">No data yet — log a batch to see the QC breakdown.</p>
+  {% endif %}
+</div>
+
+<!-- ADD MODAL -->
+<div class="overlay" id="modal-production">
+  <div class="modal">
+    <h3>Log Production Batch</h3>
+    <form method="POST" action="{{ url_for('add_production') }}">
+      <div class="field"><label>Batch ID</label><input name="batch_id" required placeholder="e.g. BATCH-2026-021"></div>
+      <div class="two-col">
+        <div class="field"><label>Model</label><input name="model" placeholder="e.g. NEVF E-Bus 12m"></div>
+        <div class="field"><label>Units Produced</label><input type="number" name="units" placeholder="0"></div>
+      </div>
+      <div class="two-col">
+        <div class="field"><label>Plant</label>
+          <select name="plant_id">
+            <option value="">-- Select Plant --</option>
+            {% for p in plant_list %}
+            <option value="{{ p.id }}">{{ p.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="field"><label>Date</label><input type="date" name="date"></div>
+      </div>
+      <div class="field"><label>QC Status</label>
+        <select name="qc_status"><option>Passed</option><option>Pending</option><option>Rework</option></select>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-outline" onclick="closeModal('modal-production')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save Batch</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- EDIT MODAL -->
+<div class="overlay" id="modal-edit-production">
+  <div class="modal">
+    <h3>Edit Production Batch</h3>
+    <form method="POST" id="edit-prod-form" action="">
+      <div class="field"><label>Batch ID</label><input name="batch_id" id="ep-batch" required></div>
+      <div class="two-col">
+        <div class="field"><label>Model</label><input name="model" id="ep-model"></div>
+        <div class="field"><label>Units Produced</label><input type="number" name="units" id="ep-units"></div>
+      </div>
+      <div class="two-col">
+        <div class="field"><label>Plant</label>
+          <select name="plant_id" id="ep-plant">
+            <option value="">-- Select Plant --</option>
+            {% for p in plant_list %}
+            <option value="{{ p.id }}">{{ p.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="field"><label>Date</label><input type="date" name="date" id="ep-date"></div>
+      </div>
+      <div class="field"><label>QC Status</label>
+        <select name="qc_status" id="ep-qc"><option>Passed</option><option>Pending</option><option>Rework</option></select>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-outline" onclick="closeModal('modal-edit-production')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save Changes</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function filterProduction(){
+  const search = document.getElementById('prodSearch').value.toLowerCase();
+  const qcVal = document.getElementById('prodQcFilter').value;
+  document.querySelectorAll('#productionTable tr').forEach(function(row){
+    const rowQc = row.getAttribute('data-qc');
+    let visible = true;
+    if (search && !row.innerText.toLowerCase().includes(search)) visible = false;
+    if (qcVal !== 'All' && rowQc !== qcVal) visible = false;
+    row.style.display = visible ? '' : 'none';
+  });
+}
+
+function editProduction(id, batchId, model, units, plantId, date, qcStatus){
+  document.getElementById('edit-prod-form').action = '/production/edit/' + id;
+  document.getElementById('ep-batch').value = batchId;
+  document.getElementById('ep-model').value = model;
+  document.getElementById('ep-units').value = units;
+  document.getElementById('ep-plant').value = plantId;
+  document.getElementById('ep-date').value = date;
+  document.getElementById('ep-qc').value = qcStatus;
+  openModal('modal-edit-production');
+}
+</script>
+{% endblock %}

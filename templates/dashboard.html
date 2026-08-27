@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block crumb %}Dashboard{% endblock %}
+{% block content %}
+
+<div class="page-head">
+  <div>
+    <h1 class="page-title">Dashboard</h1>
+    <p class="page-sub">Company-wide overview — manufacturing, sales &amp; fleet performance</p>
+  </div>
+</div>
+
+<div class="grid grid-4" style="margin-bottom:18px;">
+  <div class="card stat-card">
+    <div class="stat-top">
+      <div class="stat-icon" style="background:var(--primary-light);color:var(--primary-dark);">🏭</div>
+      <div class="stat-tag">Contract: {{ "{:,}".format(target) }}</div>
+    </div>
+    <div class="stat-label">Buses Manufactured</div>
+    <div class="stat-value">{{ "{:,}".format(total_manufactured) }}</div>
+    <div class="stat-delta up">{{ progress_pct }}% of target delivered</div>
+  </div>
+  <div class="card stat-card">
+    <div class="stat-top">
+      <div class="stat-icon" style="background:var(--green-light);color:var(--green);">🚌</div>
+      <div class="stat-tag">Live</div>
+    </div>
+    <div class="stat-label">Active Fleet (Operating)</div>
+    <div class="stat-value">{{ "{:,}".format(total_fleet_buses) }}</div>
+    <div class="stat-delta up">Across {{ total_cities }} cities · {{ total_routes }} routes</div>
+  </div>
+  <div class="card stat-card">
+    <div class="stat-top">
+      <div class="stat-icon" style="background:var(--amber-light);color:var(--amber);">👤</div>
+      <div class="stat-tag">CRM</div>
+    </div>
+    <div class="stat-label">Total Customers</div>
+    <div class="stat-value">{{ total_customers }}</div>
+    <div class="stat-delta up">{{ govt_customers }} Govt · {{ dealer_customers }} Dealers</div>
+  </div>
+  <div class="card stat-card">
+    <div class="stat-top">
+      <div class="stat-icon" style="background:var(--red-light);color:var(--red);">⚠️</div>
+      <div class="stat-tag">Jul 1–12</div>
+    </div>
+    <div class="stat-label">Driver Violations</div>
+    <div class="stat-value">{{ total_violation_count }}</div>
+    <div class="stat-delta down">{{ "{:,}".format(total_penalty) }} KM total penalty</div>
+  </div>
+</div>
+
+<div class="grid grid-2" style="align-items:start;">
+  <div class="card">
+    <div class="section-title">Production Progress — Target {{ "{:,}".format(target) }} Buses</div>
+    <div class="progress-track"><div class="progress-fill" style="width:{{ progress_pct }}%;"></div></div>
+    <div style="display:flex;justify-content:space-between;margin-top:10px;font-size:12.5px;color:var(--text-muted);">
+      <span>{{ "{:,}".format(total_manufactured) }} delivered</span>
+      <span>{{ "{:,}".format(target) }} target</span>
+    </div>
+    <hr style="border:none;border-top:1px solid var(--border);margin:18px 0;">
+    <div class="section-title" style="margin-bottom:6px;">Delay % — Last 13 Days</div>
+    <div class="bar-chart">
+      {% for d in daily %}
+      <div class="bar-col">
+        <div class="val">{{ d.delay_pct }}%</div>
+        <div class="bar" style="height:{{ (d.delay_pct / 25 * 100) if d.delay_pct < 25 else 100 }}%;"></div>
+        <div class="lbl">{{ d.date_label.split(' ')[0] }}</div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="section-title">Top Violation Types (Jul 1–12)</div>
+    {% for name, val in violation_breakdown %}
+    <div class="hbar-row">
+      <div class="hbar-label">{{ name }}</div>
+      <div class="hbar-track"><div class="hbar-fill" style="width:{{ (val / max_violation * 100) }}%;"></div></div>
+      <div class="hbar-val">{{ val }}</div>
+    </div>
+    {% endfor %}
+    <hr style="border:none;border-top:1px solid var(--border);margin:18px 0;">
+    <div class="section-title">Top 5 Cities by Delayed Trips</div>
+    {% for c in cities %}
+    <div class="hbar-row">
+      <div class="hbar-label">{{ c.city }}</div>
+      <div class="hbar-track"><div class="hbar-fill" style="width:{{ (c.delayed_trips / cities[0].delayed_trips * 100) }}%;"></div></div>
+      <div class="hbar-val">{{ c.delayed_trips }}</div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+{% endblock %}

@@ -1,0 +1,218 @@
+{% extends "base.html" %}
+{% block title %}Shipments{% endblock %}
+{% block crumb %}Shipments{% endblock %}
+{% block content %}
+
+<div class="page-head">
+  <div>
+    <h1 class="page-title">Shipments</h1>
+    <p class="page-sub">Import tracking — containers arriving from suppliers abroad (e.g. China)</p>
+  </div>
+  <button class="btn btn-primary" onclick="openModal('modal-shipment')">+ Add Shipment</button>
+</div>
+
+<div class="grid grid-3" style="margin-bottom:18px;">
+  <div class="card stat-card fade-in"><div class="stat-label">Total Shipments</div><div class="stat-value count-up" data-target="{{ total }}">0</div></div>
+  <div class="card stat-card fade-in" style="animation-delay:.05s;"><div class="stat-label">Total Containers</div><div class="stat-value count-up" data-target="{{ total_containers }}">0</div></div>
+  <div class="card stat-card fade-in" style="animation-delay:.1s;"><div class="stat-label">Currently In Transit</div><div class="stat-value count-up" data-target="{{ in_transit }}">0</div></div>
+</div>
+
+<div class="table-wrap" style="margin-bottom:24px;">
+  <div class="toolbar">
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+      <input class="search-box" id="shipSearch" placeholder="Search shipments..." onkeyup="filterShipments()" style="width:220px;">
+      <select id="shipStatusFilter" onchange="filterShipments()" style="padding:9px 12px;border:1px solid var(--border);border-radius:8px;font-size:13.5px;background:#fff;">
+        <option value="All">All Status</option>
+        <option value="Ordered">Ordered</option>
+        <option value="In Transit">In Transit</option>
+        <option value="At Port">At Port</option>
+        <option value="Customs Clearance">Customs Clearance</option>
+        <option value="Delivered">Delivered</option>
+      </select>
+    </div>
+    <a href="{{ url_for('export_shipments') }}" class="btn btn-outline btn-sm">⬇ Export</a>
+  </div>
+
+  {% if shipments %}
+  <table>
+    <thead>
+      <tr>
+        <th onclick="sortShipments(0)" class="sortable">Ref <span class="sort-ic">⇅</span></th>
+        <th>Origin</th>
+        <th>Supplier</th>
+        <th>Items</th>
+        <th onclick="sortShipments(4)" class="sortable">Containers <span class="sort-ic">⇅</span></th>
+        <th onclick="sortShipments(5)" class="sortable">Status <span class="sort-ic">⇅</span></th>
+        <th onclick="sortShipments(6)" class="sortable">Expected Arrival <span class="sort-ic">⇅</span></th>
+        <th>Actual Arrival</th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody id="shipmentsTable">
+      {% for s in shipments %}
+      <tr data-status="{{ s.status }}">
+        <td><b>{{ s.shipment_ref }}</b></td>
+        <td>{{ s.origin_country }}</td>
+        <td>{{ s.supplier_name or '-' }}</td>
+        <td>{{ s.items_description or '-' }}</td>
+        <td>{{ s.container_count }}</td>
+        <td>
+          {% if s.status == 'Delivered' %}<span class="badge badge-green">{{ s.status }}</span>
+          {% elif s.status == 'In Transit' %}<span class="badge badge-blue">{{ s.status }}</span>
+          {% elif s.status == 'At Port' %}<span class="badge badge-amber">{{ s.status }}</span>
+          {% elif s.status == 'Customs Clearance' %}<span class="badge badge-amber">{{ s.status }}</span>
+          {% else %}<span class="badge badge-gray">{{ s.status }}</span>{% endif %}
+        </td>
+        <td>{{ s.expected_arrival or '-' }}</td>
+        <td>{{ s.actual_arrival or '-' }}</td>
+        <td style="display:flex;gap:6px;">
+          <button class="btn btn-outline btn-sm" type="button"
+            onclick='editShipment({{ s.id }}, {{ s.shipment_ref|tojson }}, {{ s.origin_country|tojson }}, {{ (s.supplier_name or "")|tojson }}, {{ (s.items_description or "")|tojson }}, {{ s.container_count|tojson }}, {{ s.status|tojson }}, {{ (s.port_of_entry or "")|tojson }}, {{ (s.expected_arrival or "")|tojson }}, {{ (s.actual_arrival or "")|tojson }}, {{ s.value|tojson }}, {{ (s.notes or "")|tojson }})'>Edit</button>
+          <form method="POST" action="{{ url_for('delete_shipment', id=s.id) }}" style="display:inline;" onsubmit="return confirm('Delete this shipment?');">
+            <button class="btn btn-danger btn-sm" type="submit">Delete</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty"><div class="icon">🚢</div><div>No shipments recorded yet. Click "+ Add Shipment" to log your first container order.</div></div>
+  {% endif %}
+</div>
+
+<!-- ================= STATUS CHART ================= -->
+<div class="card fade-in">
+  <div class="section-title">Shipments by Status</div>
+  {% if status_breakdown %}
+    {% for name, val in status_breakdown %}
+    <div class="hbar-row">
+      <div class="hbar-label">{{ name }}</div>
+      <div class="hbar-track"><div class="hbar-fill animated-bar" style="--target-width:{{ (val / max_status * 100) }}%;"></div></div>
+      <div class="hbar-val">{{ val }}</div>
+    </div>
+    {% endfor %}
+  {% else %}
+    <p class="page-sub">No data yet — add shipments to see the status breakdown.</p>
+  {% endif %}
+</div>
+
+<!-- ================= ADD MODAL ================= -->
+<div class="overlay" id="modal-shipment">
+  <div class="modal">
+    <h3>Add Shipment</h3>
+    <div class="modal-sub">Log a new container order or import shipment</div>
+    <form method="POST" action="{{ url_for('add_shipment') }}">
+      <div class="field"><label>Shipment Reference</label><input name="shipment_ref" required placeholder="e.g. NEVF-SHP-2026-014"></div>
+      <div class="two-col">
+        <div class="field"><label>Origin Country</label><input name="origin_country" value="China" placeholder="e.g. China"></div>
+        <div class="field"><label>Supplier Name</label><input name="supplier_name" placeholder="e.g. CATL Battery Co."></div>
+      </div>
+      <div class="field"><label>Items Description</label><input name="items_description" placeholder="e.g. Battery cells, motor controllers"></div>
+      <div class="two-col">
+        <div class="field"><label>Container Count</label><input type="number" name="container_count" value="1" min="1"></div>
+        <div class="field"><label>Status</label>
+          <select name="status">
+            <option>Ordered</option><option>In Transit</option><option>At Port</option>
+            <option>Customs Clearance</option><option>Delivered</option>
+          </select>
+        </div>
+      </div>
+      <div class="field"><label>Port of Entry</label><input name="port_of_entry" placeholder="e.g. Karachi Port"></div>
+      <div class="two-col">
+        <div class="field"><label>Expected Arrival</label><input type="date" name="expected_arrival"></div>
+        <div class="field"><label>Actual Arrival</label><input type="date" name="actual_arrival"></div>
+      </div>
+      <div class="field"><label>Value (PKR)</label><input type="number" name="value" placeholder="0"></div>
+      <div class="field"><label>Notes</label><textarea name="notes" placeholder="Any relevant details..."></textarea></div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-outline" onclick="closeModal('modal-shipment')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save Shipment</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ================= EDIT MODAL ================= -->
+<div class="overlay" id="modal-edit-shipment">
+  <div class="modal">
+    <h3>Edit Shipment</h3>
+    <form method="POST" id="edit-ship-form" action="">
+      <div class="field"><label>Shipment Reference</label><input name="shipment_ref" id="es-ref" required></div>
+      <div class="two-col">
+        <div class="field"><label>Origin Country</label><input name="origin_country" id="es-origin"></div>
+        <div class="field"><label>Supplier Name</label><input name="supplier_name" id="es-supplier"></div>
+      </div>
+      <div class="field"><label>Items Description</label><input name="items_description" id="es-items"></div>
+      <div class="two-col">
+        <div class="field"><label>Container Count</label><input type="number" name="container_count" id="es-containers" min="1"></div>
+        <div class="field"><label>Status</label>
+          <select name="status" id="es-status">
+            <option>Ordered</option><option>In Transit</option><option>At Port</option>
+            <option>Customs Clearance</option><option>Delivered</option>
+          </select>
+        </div>
+      </div>
+      <div class="field"><label>Port of Entry</label><input name="port_of_entry" id="es-port"></div>
+      <div class="two-col">
+        <div class="field"><label>Expected Arrival</label><input type="date" name="expected_arrival" id="es-expected"></div>
+        <div class="field"><label>Actual Arrival</label><input type="date" name="actual_arrival" id="es-actual"></div>
+      </div>
+      <div class="field"><label>Value (PKR)</label><input type="number" name="value" id="es-value"></div>
+      <div class="field"><label>Notes</label><textarea name="notes" id="es-notes"></textarea></div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-outline" onclick="closeModal('modal-edit-shipment')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save Changes</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function filterShipments(){
+  const search = document.getElementById('shipSearch').value.toLowerCase();
+  const statusVal = document.getElementById('shipStatusFilter').value;
+  document.querySelectorAll('#shipmentsTable tr').forEach(function(row){
+    const rowStatus = row.getAttribute('data-status');
+    let visible = true;
+    if (search && !row.innerText.toLowerCase().includes(search)) visible = false;
+    if (statusVal !== 'All' && rowStatus !== statusVal) visible = false;
+    row.style.display = visible ? '' : 'none';
+  });
+}
+
+let shipSortDir = {};
+function sortShipments(colIndex){
+  const tbody = document.getElementById('shipmentsTable');
+  const rows = Array.from(tbody.querySelectorAll('tr'));
+  shipSortDir[colIndex] = !shipSortDir[colIndex];
+  rows.sort(function(a, b){
+    const av = a.children[colIndex].innerText.trim().toLowerCase();
+    const bv = b.children[colIndex].innerText.trim().toLowerCase();
+    if (av < bv) return shipSortDir[colIndex] ? -1 : 1;
+    if (av > bv) return shipSortDir[colIndex] ? 1 : -1;
+    return 0;
+  });
+  rows.forEach(r => tbody.appendChild(r));
+}
+
+function editShipment(id, ref, origin, supplier, items, containers, status, port, expected, actual, value, notes){
+  document.getElementById('edit-ship-form').action = '/shipments/edit/' + id;
+  document.getElementById('es-ref').value = ref;
+  document.getElementById('es-origin').value = origin;
+  document.getElementById('es-supplier').value = supplier;
+  document.getElementById('es-items').value = items;
+  document.getElementById('es-containers').value = containers;
+  document.getElementById('es-status').value = status;
+  document.getElementById('es-port').value = port;
+  document.getElementById('es-expected').value = expected;
+  document.getElementById('es-actual').value = actual;
+  document.getElementById('es-value').value = value;
+  document.getElementById('es-notes').value = notes;
+  openModal('modal-edit-shipment');
+}
+</script>
+{% endblock %}
