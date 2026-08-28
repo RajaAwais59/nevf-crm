@@ -100,15 +100,15 @@
 
   {% if employees %}
   <table>
-    <thead>
+      <thead>
       <tr>
         <th>Photo</th>
-        <th onclick="sortEmployees(2)" class="sortable">Name <span class="sort-ic">⇅</span></th>
-        <th onclick="sortEmployees(3)" class="sortable">Designation <span class="sort-ic">⇅</span></th>
-        <th onclick="sortEmployees(4)" class="sortable">Department <span class="sort-ic">⇅</span></th>
+        <th class="sortable"><a class="sort-link" href="{{ url_for('employees', sort='name', dir='desc' if current_sort=='name' and current_dir=='asc' else 'asc') }}">Name {% if current_sort=='name' %}{{ '▲' if current_dir=='asc' else '▼' }}{% else %}<span class="sort-ic">⇅</span>{% endif %}</a></th>
+        <th class="sortable"><a class="sort-link" href="{{ url_for('employees', sort='designation', dir='desc' if current_sort=='designation' and current_dir=='asc' else 'asc') }}">Designation {% if current_sort=='designation' %}{{ '▲' if current_dir=='asc' else '▼' }}{% else %}<span class="sort-ic">⇅</span>{% endif %}</a></th>
+        <th class="sortable"><a class="sort-link" href="{{ url_for('employees', sort='department', dir='desc' if current_sort=='department' and current_dir=='asc' else 'asc') }}">Department {% if current_sort=='department' %}{{ '▲' if current_dir=='asc' else '▼' }}{% else %}<span class="sort-ic">⇅</span>{% endif %}</a></th>
         <th>Reports To</th>
         <th>Phone</th>
-        <th onclick="sortEmployees(7)" class="sortable">Status <span class="sort-ic">⇅</span></th>
+        <th class="sortable"><a class="sort-link" href="{{ url_for('employees', sort='status', dir='desc' if current_sort=='status' and current_dir=='asc' else 'asc') }}">Status {% if current_sort=='status' %}{{ '▲' if current_dir=='asc' else '▼' }}{% else %}<span class="sort-ic">⇅</span>{% endif %}</a></th>
         <th>Action</th>
       </tr>
     </thead>

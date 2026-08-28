@@ -37,13 +37,13 @@
   <table>
     <thead>
       <tr>
-        <th onclick="sortShipments(0)" class="sortable">Ref <span class="sort-ic">⇅</span></th>
+        <th class="sortable"><a class="sort-link" href="{{ url_for('shipments', sort='shipment_ref', dir='desc' if current_sort=='shipment_ref' and current_dir=='asc' else 'asc') }}">Ref {% if current_sort=='shipment_ref' %}{{ '▲' if current_dir=='asc' else '▼' }}{% else %}<span class="sort-ic">⇅</span>{% endif %}</a></th>
         <th>Origin</th>
-        <th>Supplier</th>
+        <th class="sortable"><a class="sort-link" href="{{ url_for('shipments', sort='supplier_name', dir='desc' if current_sort=='supplier_name' and current_dir=='asc' else 'asc') }}">Supplier {% if current_sort=='supplier_name' %}{{ '▲' if current_dir=='asc' else '▼' }}{% else %}<span class="sort-ic">⇅</span>{% endif %}</a></th>
         <th>Items</th>
-        <th onclick="sortShipments(4)" class="sortable">Containers <span class="sort-ic">⇅</span></th>
-        <th onclick="sortShipments(5)" class="sortable">Status <span class="sort-ic">⇅</span></th>
-        <th onclick="sortShipments(6)" class="sortable">Expected Arrival <span class="sort-ic">⇅</span></th>
+        <th class="sortable"><a class="sort-link" href="{{ url_for('shipments', sort='container_count', dir='desc' if current_sort=='container_count' and current_dir=='asc' else 'asc') }}">Containers {% if current_sort=='container_count' %}{{ '▲' if current_dir=='asc' else '▼' }}{% else %}<span class="sort-ic">⇅</span>{% endif %}</a></th>
+        <th class="sortable"><a class="sort-link" href="{{ url_for('shipments', sort='status', dir='desc' if current_sort=='status' and current_dir=='asc' else 'asc') }}">Status {% if current_sort=='status' %}{{ '▲' if current_dir=='asc' else '▼' }}{% else %}<span class="sort-ic">⇅</span>{% endif %}</a></th>
+        <th class="sortable"><a class="sort-link" href="{{ url_for('shipments', sort='expected_arrival', dir='desc' if current_sort=='expected_arrival' and current_dir=='asc' else 'asc') }}">Expected Arrival {% if current_sort=='expected_arrival' %}{{ '▲' if current_dir=='asc' else '▼' }}{% else %}<span class="sort-ic">⇅</span>{% endif %}</a></th>
         <th>Actual Arrival</th>
         <th>Action</th>
       </tr>
