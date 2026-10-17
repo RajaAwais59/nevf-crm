@@ -26,7 +26,7 @@ def allowed_file(filename):
 app = Flask(__name__)
 app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{DB_PATH}"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-app.secret_key = "nevf-local-dev-key"
+app.secret_key = os.environ.get("SECRET_KEY") or "nevf-local-dev-key"
 
 db.init_app(app)
 
